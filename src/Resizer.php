@@ -24,10 +24,25 @@ class Resizer
 	 */
 	public function serve(string $requestPath): void
 	{
-		// Parse the request (Now expects -v{timestamp} in the string)
+		// Parse the request
 		$request = $this->config->parseImageRequest($requestPath);
 		if (!$request) {
 			throw new \Exception("Invalid image request: {$requestPath}");
+		}
+
+		// check freshness
+		$currentVersion = $this->config->getCacheVersion($request->basePath, $request->originalExt);
+		if ($request->version !== $currentVersion) {
+			// The user requested an old version. Redirect them to the current one.
+			$newUrl = $this->config->imageUrlGenerator(
+				$request->basePath,
+				$request->originalExt,
+				$request->outputExt,
+				$request->width
+			);
+			// Grab the response, set the header, and exit
+			response()->redirect($newUrl, 'auto', 301)->send();
+			exit;
 		}
 
 		// Get source file

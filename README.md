@@ -1,6 +1,6 @@
 # SuperImage - Responsive Images for CodeIgniter 4
 
-A modern, high-performance responsive image library with on-the-fly resizing, hybrid caching, and modern HTML support.
+A modern, high-performance responsive image library with on-the-fly resizing, hybrid caching, and modern HTML support. The lib uses filemtime() to determine freshness of the hires asset - if a stale asset is requested, a 301 redirect is issued to the latest version.
 
 ## Install
 

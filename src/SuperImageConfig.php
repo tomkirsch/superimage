@@ -106,7 +106,7 @@ class SuperImageConfig extends BaseConfig
 	/**
 	 * Get the version string based on method
 	 */
-	protected function getCacheVersion(string $filePath, string $originalExt): string
+	public function getCacheVersion(string $filePath, string $originalExt): string
 	{
 		switch ($this->cacheBustingMethod) {
 			case 'mtime':
