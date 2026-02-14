@@ -1,0 +1,18 @@
+{
+    "name": "tomkirsch/superimage",
+    "type": "library",
+    "description": "SuperImage Library for CodeIgniter4",
+    "require": {
+        "codeigniter4/framework": "^4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Tomkirsch\\SuperImage\\": "src/"
+        }
+    },
+    "archive": {
+        "exclude": [
+            "tests"
+        ]
+    }
+}
