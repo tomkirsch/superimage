@@ -32,6 +32,16 @@ class SuperImage
 	protected SuperImageConfig $config;
 
 	/**
+	 * Per-request image metadata cache
+	 */
+	protected static array $imageMetaCache = [];
+
+	/**
+	 * Options loaded for chained calls
+	 */
+	protected array $loadedOptions = [];
+
+	/**
 	 * Source image file path
 	 */
 	protected string $file;
@@ -155,6 +165,15 @@ class SuperImage
 	}
 
 	/**
+	 * Optional, load options for chained calls without triggering image reads
+	 */
+	public function load(array $options = []): self
+	{
+		$this->loadedOptions = $options;
+		return $this;
+	}
+
+	/**
 	 * Main render method - renders responsive image based on configuration
 	 * 
 	 * @param array $options Configuration array
@@ -163,6 +182,7 @@ class SuperImage
 	public function render(array $options = []): string
 	{
 		$this->reset();
+		$this->applyOptions($this->loadedOptions);
 		$this->applyOptions($options);
 		$this->validate();
 		$this->prepare();
@@ -176,6 +196,29 @@ class SuperImage
 		} else {
 			return $this->renderDynamic();
 		}
+	}
+
+	/**
+	 * Utility - get a single image URL (optionally for a specific width)
+	 */
+	public function imgUrl(?int $width = null, array $options = []): string
+	{
+		$this->reset();
+		$this->applyOptions($this->loadedOptions);
+		$this->applyOptions($options);
+		$this->validate();
+
+		if ($width === null) {
+			$this->prepare();
+			if ($this->usePlaceholder) {
+				return '';
+			}
+			$fallbackWidth = min(array_merge(...array_values($this->resolutionDict)));
+			return $this->getImageUrl($fallbackWidth);
+		}
+
+		$this->ensureFileParsed();
+		return $this->getImageUrl($width);
 	}
 
 	/**
@@ -237,6 +280,7 @@ class SuperImage
 		foreach ($options as $key => $value) {
 			switch ($key) {
 				case 'src':
+				case 'file':
 					$this->file = $value;
 					break;
 				case 'lazy':
@@ -275,7 +319,7 @@ class SuperImage
 		if ($this->usePlaceholder) {
 			return;
 		}
-		$this->parseFilePath();
+		$this->ensureFileParsed();
 		$layoutWidths = $this->calculateLayoutWidths();
 		$this->buildResolutionDict($layoutWidths);
 	}
@@ -288,6 +332,16 @@ class SuperImage
 		if ($this->image && $this->origWidth && $this->origHeight) {
 			return;
 		}
+
+		$cacheKey = $this->getImageCacheKey($this->file);
+		if (isset(self::$imageMetaCache[$cacheKey])) {
+			$meta = self::$imageMetaCache[$cacheKey];
+			$this->origWidth = $meta['width'];
+			$this->origHeight = $meta['height'];
+			$this->originalExt = $meta['originalExt'];
+			$this->publicFile = $meta['publicFile'];
+			return;
+		}
 		try {
 			$this->image = new Image($this->file, false);
 			if (!$this->origWidth || !$this->origHeight) {
@@ -295,6 +349,13 @@ class SuperImage
 				$this->origWidth = $props['width'];
 				$this->origHeight = $props['height'];
 			}
+			$this->parseFilePathFromPath($this->image->getPathname());
+			self::$imageMetaCache[$cacheKey] = [
+				'width' => $this->origWidth,
+				'height' => $this->origHeight,
+				'publicFile' => $this->publicFile,
+				'originalExt' => $this->originalExt,
+			];
 		} catch (\Exception $e) {
 			// Image doesn't exist or is invalid
 			// Return placeholder image HTML instead of throwing
@@ -308,9 +369,38 @@ class SuperImage
 	 */
 	protected function parseFilePath(): void
 	{
-		$pathInfo = pathinfo($this->image->getPathname());
-		$this->originalExt = $pathInfo['extension'];
-		$this->publicFile = $pathInfo['filename']; // publicUrlPrefix is added in URL generator
+		$this->parseFilePathFromPath($this->image->getPathname());
+	}
+
+	/**
+	 * Parse file path to extract name and extension from a path string
+	 */
+	protected function parseFilePathFromPath(string $path): void
+	{
+		$pathInfo = pathinfo($path);
+		$this->originalExt = $pathInfo['extension'] ?? $this->originalExt;
+		$this->publicFile = $pathInfo['filename'] ?? $this->publicFile; // publicUrlPrefix is added in URL generator
+	}
+
+	/**
+	 * Ensure file info is parsed even when image is not loaded
+	 */
+	protected function ensureFileParsed(): void
+	{
+		if ($this->originalExt && $this->publicFile) {
+			return;
+		}
+		$path = $this->image ? $this->image->getPathname() : $this->file;
+		$this->parseFilePathFromPath($path);
+	}
+
+	/**
+	 * Normalize a cache key for the image metadata cache
+	 */
+	protected function getImageCacheKey(string $file): string
+	{
+		$real = realpath($file);
+		return $real ?: $file;
 	}
 
 	/**
@@ -581,7 +671,7 @@ class SuperImage
 	 */
 	protected function getImageUrl(int $width): string
 	{
-		return $this->config->imageUrlGenerator(
+		return $this->config->imageUrl(
 			$this->publicFile,
 			$this->originalExt,
 			$this->outputExt,
@@ -619,5 +709,13 @@ class SuperImage
 	public function pixel64(): string
 	{
 		return 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+	}
+
+	/**
+	 * Get the list of images read during this request
+	 */
+	public function getReadImages(): array
+	{
+		return self::$imageMetaCache;
 	}
 }

@@ -69,7 +69,7 @@ class SuperImageConfig extends BaseConfig
 	 * Generate the public-facing image URL with versioning in the filename
 	 * Pattern: path/to/file-w600-v12345678.webp
 	 */
-	public function imageUrlGenerator(string $filePath, string $originalExt, string $outputExt, int $width): string
+	public function imageUrl(string $filePath, string $originalExt, string $outputExt, int $width): string
 	{
 		$version = $this->getCacheVersion($filePath, $originalExt);
 

@@ -84,6 +84,78 @@ Paste this after RewriteEngine ON:
 
 You might need to change the path to the DOCUMENT_ROOT above to match your setup.
 
+## config/Services.php
+
+```php
+    public static function superImage($options = null, ?bool $getShared = true)
+    {
+        if (is_bool($options)) {
+            $getShared = $options;
+            $options = null;
+        }
+
+        if (is_array($options)) {
+            $getShared = false;
+        }
+
+        if ($getShared) {
+            return static::getSharedInstance('superImage');
+        }
+
+        $config = new \Config\SuperImage();
+        $instance = new \Tomkirsch\SuperImage\SuperImage($config);
+
+        if (is_array($options) && !empty($options)) {
+            $instance->load($options);
+        }
+
+        return $instance;
+    }
+
+    public static function resizer(?bool $getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('resizer');
+        }
+        $config = new \Config\SuperImage();
+        return new \Tomkirsch\SuperImage\Resizer($config);
+    }
+```
+
+## config/Routes.php
+
+```php
+<?php
+
+use CodeIgniter\Router\RouteCollection;
+
+/**
+ * @var RouteCollection $routes
+ */
+$routes->get('/', 'Home::index');
+$routes->get('img/(.+)', 'Home::serveImage/$1');
+// optional - cache management
+```
+
+## controllers/Home.php
+
+```php
+    /**
+     * Serve image request
+     * @param string $path Image path with width, version, etc.
+     */
+    public function serveImage($path)
+    {
+        $resizer = \Config\Services::resizer();
+        try {
+            $resizer->serve($path);
+        } catch (\Exception $e) {
+            // Handle errors (e.g., log them, show a 404 page, etc.)
+            throw new \CodeIgniter\Exceptions\PageNotFoundException($e->getMessage());
+        }
+    }
+```
+
 ## View
 
 The load priority should be carefully set to avoid writing many too many images on a single page load!

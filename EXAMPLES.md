@@ -3,6 +3,7 @@
 Real-world usage patterns for common scenarios.
 
 ## Table of Contents
+
 - [Blog/Article Layout](#blogarticle-layout)
 - [E-commerce Product Pages](#e-commerce-product-pages)
 - [Portfolio/Gallery](#portfoliogallery)
@@ -35,10 +36,10 @@ Real-world usage patterns for common scenarios.
         <div class="row">
             <div class="col-lg-8">
                 <h1><?= esc($post['title']) ?></h1>
-                
+
                 <!-- Content with inline images -->
                 <?= $post['content'] ?>
-                
+
                 <!-- Inline image - 2/3 width -->
                 <?= \Config\Services::superimage()->render([
                     'src' => WRITEPATH . 'uploads/blog/' . $post['inline_image'],
@@ -48,7 +49,7 @@ Real-world usage patterns for common scenarios.
                     'imgAttr' => ['class' => 'my-4 rounded shadow']
                 ]) ?>
             </div>
-            
+
             <!-- Sidebar -->
             <div class="col-lg-4">
                 <h3>Related Posts</h3>
@@ -99,7 +100,7 @@ Real-world usage patterns for common scenarios.
                     'data-zoom' => 'true'
                 ]
             ]) ?>
-            
+
             <!-- Thumbnail gallery -->
             <div class="thumbnail-gallery mt-3">
                 <?php foreach ($product['images'] as $idx => $image): ?>
@@ -121,7 +122,7 @@ Real-world usage patterns for common scenarios.
                 <?php endforeach; ?>
             </div>
         </div>
-        
+
         <!-- Product info -->
         <div class="col-md-6">
             <h1><?= esc($product['name']) ?></h1>
@@ -129,7 +130,7 @@ Real-world usage patterns for common scenarios.
             <button class="btn btn-primary">Add to Cart</button>
         </div>
     </div>
-    
+
     <!-- Related products -->
     <div class="related-products mt-5">
         <h2>You May Also Like</h2>
@@ -266,24 +267,24 @@ class Gallery extends BaseController
     public function index()
     {
         $config = config('SuperImageConfig');
-        
+
         // Calculate widths for 3-col → 2-col → 1-col responsive grid
         $widths = [];
         foreach ($config->breakpoints() as $size => $breakpoint) {
             $container = $config->containers()[$size];
             $gutter = 30;
-            
+
             // Determine columns based on breakpoint
             $cols = match(true) {
                 $breakpoint >= 992 => 3,   // lg+: 3 columns
                 $breakpoint >= 768 => 2,   // md: 2 columns
                 default => 1               // sm: 1 column
             };
-            
+
             $widths[$breakpoint] = (int)(($container / $cols) - $gutter);
         }
         $widths[0] = 540;  // Mobile default
-        
+
         return view('gallery/index', [
             'images' => $this->galleryModel->findAll(),
             'imageWidths' => $widths
@@ -338,13 +339,13 @@ foreach ($bgSizes as $size) {
 function setResponsiveBackground(element) {
     const width = window.innerWidth;
     let bgSize;
-    
+
     if (width >= 1400) bgSize = 1320;
     else if (width >= 1200) bgSize = 1140;
     else if (width >= 992) bgSize = 960;
     else if (width >= 768) bgSize = 720;
     else bgSize = 540;
-    
+
     const bgUrl = element.dataset[`bg${bgSize}`];
     element.style.backgroundImage = `url(${bgUrl})`;
 }
@@ -429,7 +430,7 @@ if (!function_exists('image_url')) {
     {
         $config = config('SuperImageConfig');
         $pathInfo = pathinfo($src);
-        return $config->imageUrlGenerator(
+        return $config->imageUrl(
             $pathInfo['dirname'] . '/' . $pathInfo['filename'],
             $pathInfo['extension'],
             $ext,

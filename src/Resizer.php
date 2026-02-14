@@ -15,7 +15,84 @@ class Resizer
 
 	public function __construct(?SuperImageConfig $config = null)
 	{
-		$this->config = $config ?? config('SuperImageConfig');
+		$this->config = $config ?? new SuperImageConfig();
+	}
+
+	/**
+	 * Clean expired cache files
+	 * 
+	 * @return int Number of files deleted
+	 */
+	public function cleanExpired(): int
+	{
+		if ($this->config->cacheTTL <= 0) {
+			return 0;
+		}
+
+		$count = 0;
+		$expireTime = time() - $this->config->cacheTTL;
+
+		$iterator = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator(
+				$this->config->cachePath,
+				\FilesystemIterator::SKIP_DOTS
+			)
+		);
+
+		foreach ($iterator as $file) {
+			if ($file->isFile() && $file->getMTime() < $expireTime) {
+				@unlink($file->getRealPath());
+				$count++;
+			}
+		}
+
+		return $count;
+	}
+
+	/**
+	 * Clean all cache files for a specific image
+	 * 
+	 * @param string $basePath Image base path (e.g., 'products/photo')
+	 * @return int Number of files deleted
+	 */
+	public function cleanImage(string $basePath): int
+	{
+		$count = 0;
+		$pattern = $this->config->cachePath . $basePath . '-w*';
+
+		foreach (glob($pattern) as $file) {
+			@unlink($file);
+			$count++;
+		}
+
+		return $count;
+	}
+
+	/**
+	 * Clean entire cache directory
+	 * 
+	 * @return int Number of files deleted
+	 */
+	public function cleanAll(): int
+	{
+		$count = 0;
+
+		$iterator = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator(
+				$this->config->cachePath,
+				\FilesystemIterator::SKIP_DOTS
+			),
+			\RecursiveIteratorIterator::CHILD_FIRST
+		);
+
+		foreach ($iterator as $file) {
+			if ($file->isFile()) {
+				@unlink($file->getRealPath());
+				$count++;
+			}
+		}
+
+		return $count;
 	}
 
 	/**
@@ -34,7 +111,7 @@ class Resizer
 		$currentVersion = $this->config->getCacheVersion($request->basePath, $request->originalExt);
 		if ($request->version !== $currentVersion) {
 			// The user requested an old version. Redirect them to the current one.
-			$newUrl = $this->config->imageUrlGenerator(
+			$newUrl = $this->config->imageUrl(
 				$request->basePath,
 				$request->originalExt,
 				$request->outputExt,
@@ -151,8 +228,14 @@ class Resizer
 		// With versioned URLs, we can set aggressive caching
 		header("Cache-Control: public, max-age=31536000, immutable");
 
+		// send debug header in development
 		if (env('CI_ENVIRONMENT') === 'development') {
 			header("X-Superimage-Cache: " . ($this->wasResized ? 'write' : 'php'));
+			$sourceFile = $this->config->getSourcePath(
+				$this->config->parseImageRequest(basename($filePath))->basePath,
+				$this->config->parseImageRequest(basename($filePath))->originalExt
+			);
+			header("X-Superimage-Source: " . $sourceFile);
 		}
 
 		readfile($filePath);
@@ -167,82 +250,5 @@ class Resizer
 			'avif' => 'image/avif',
 			default => 'application/octet-stream'
 		};
-	}
-
-	/**
-	 * Clean expired cache files
-	 * 
-	 * @return int Number of files deleted
-	 */
-	public function cleanExpired(): int
-	{
-		if ($this->config->cacheTTL <= 0) {
-			return 0;
-		}
-
-		$count = 0;
-		$expireTime = time() - $this->config->cacheTTL;
-
-		$iterator = new \RecursiveIteratorIterator(
-			new \RecursiveDirectoryIterator(
-				$this->config->cachePath,
-				\FilesystemIterator::SKIP_DOTS
-			)
-		);
-
-		foreach ($iterator as $file) {
-			if ($file->isFile() && $file->getMTime() < $expireTime) {
-				@unlink($file->getRealPath());
-				$count++;
-			}
-		}
-
-		return $count;
-	}
-
-	/**
-	 * Clean all cache files for a specific image
-	 * 
-	 * @param string $basePath Image base path (e.g., 'products/photo')
-	 * @return int Number of files deleted
-	 */
-	public function cleanImage(string $basePath): int
-	{
-		$count = 0;
-		$pattern = $this->config->cachePath . $basePath . '-w*';
-
-		foreach (glob($pattern) as $file) {
-			@unlink($file);
-			$count++;
-		}
-
-		return $count;
-	}
-
-	/**
-	 * Clean entire cache directory
-	 * 
-	 * @return int Number of files deleted
-	 */
-	public function cleanAll(): int
-	{
-		$count = 0;
-
-		$iterator = new \RecursiveIteratorIterator(
-			new \RecursiveDirectoryIterator(
-				$this->config->cachePath,
-				\FilesystemIterator::SKIP_DOTS
-			),
-			\RecursiveIteratorIterator::CHILD_FIRST
-		);
-
-		foreach ($iterator as $file) {
-			if ($file->isFile()) {
-				@unlink($file->getRealPath());
-				$count++;
-			}
-		}
-
-		return $count;
 	}
 }
