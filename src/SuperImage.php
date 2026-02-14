@@ -603,7 +603,14 @@ class SuperImage
 		$nl = $this->prettyPrint ? "\n" : '';
 		$attr = $this->imgAttr;
 
-		$fallbackWidth = min(array_merge(...array_values($this->resolutionDict)));
+		$widths = [];
+		array_walk_recursive($this->resolutionDict, function ($v) use (&$widths) {
+			$widths[] = $v;
+		});
+		if (empty($widths)) {
+			$widths[] = 540; // fallback width
+		}
+		$fallbackWidth = min($widths);
 		$attr['src'] = $this->getImageUrl($fallbackWidth);
 
 		$attr['alt'] = $this->alt;
