@@ -44,9 +44,9 @@ Paste this after RewriteEngine ON:
     # These rules MUST come BEFORE CodeIgniter's main rewrite rules
     # Match pattern: img/{anything}-w{number}.{ext}
     # Examples:
-    #   /img/image_1-w1200.webp
-    #   /img/products/photo-w800.jpg
-    #   /img/blog/hero-w1920.png
+    #   /img/image_1.jpg-w1200.webp
+    #   /img/products/photo.jpg-w800.jpg
+    #   /img/blog/hero.jpg-w1920.png
 
     # Check if the cached version of the requested image exists
     # We use a look-ahead to capture the groups from the rule below
@@ -147,23 +147,30 @@ $routes->get('img/(.+)', 'Home::serveImage/$1');
     public function serveImage($path)
     {
         $resizer = \Config\Services::resizer();
-        try {
-            $resizer->serve($path);
-        } catch (\Exception $e) {
-            // Handle errors (e.g., log them, show a 404 page, etc.)
-            throw new \CodeIgniter\Exceptions\PageNotFoundException($e->getMessage());
-        }
+        $resizer->serve($path);
     }
 ```
 
 ## View
+
+The `src` parameter must be a relative base filename with extension:
+
+```php
+'src' => 'hero.jpg'               // relative base name with extension
+'src' => 'product_1.jpg'          // relative base name with extension
+'src' => 'products/photo_1.png'   // relative base name with subdirectory and extension
+```
+
+The source path is resolved automatically from your config's `$sourcePath` setting. The class automatically extracts the extension.
+
+---
 
 The load priority should be carefully set to avoid writing many too many images on a single page load!
 Above-fold:
 
 ```php
 <?= \Config\Services::superImage()->render([
-    'src' => 'YOUR_FILE.jpg',
+    'src' => 'hero.jpg',
     'widths' => 'full',
     'loading' => 'eager',
     'priority' => 'high'
@@ -174,7 +181,7 @@ Below-fold:
 
 ```php
 <?= \Config\Services::superImage()->render([
-    'src' => 'YOUR_FILE.jpg',
+    'src' => 'product_1.jpg',
     'widths' => 'full',
     'loading' => 'lazy',
     'priority'=>'low',

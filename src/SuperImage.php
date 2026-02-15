@@ -32,7 +32,7 @@ class SuperImage
 	protected SuperImageConfig $config;
 
 	/**
-	 * Per-request image metadata cache
+	 * Per-request image metadata cache (keyed by realpath).
 	 */
 	protected static array $imageMetaCache = [];
 
@@ -42,7 +42,7 @@ class SuperImage
 	protected array $loadedOptions = [];
 
 	/**
-	 * Source image file path
+	 * Relative base filename WITH extension (e.g., 'hero.jpg' or 'products/product_1.jpg')
 	 */
 	protected string $file;
 
@@ -58,19 +58,9 @@ class SuperImage
 	protected ?int $origHeight = null;
 
 	/**
-	 * Public-facing filename (without extension)
-	 */
-	protected ?string $publicFile = null;
-
-	/**
 	 * Output file extension
 	 */
 	protected string $outputExt = 'webp';
-
-	/**
-	 * Original file extension
-	 */
-	protected ?string $originalExt = null;
 
 	/**
 	 * Layout widths configuration
@@ -216,8 +206,6 @@ class SuperImage
 			$fallbackWidth = min(array_merge(...array_values($this->resolutionDict)));
 			return $this->getImageUrl($fallbackWidth);
 		}
-
-		$this->ensureFileParsed();
 		return $this->getImageUrl($width);
 	}
 
@@ -226,18 +214,17 @@ class SuperImage
 	 */
 	protected function renderPlaceholder(): string
 	{
-		// if development mode, show full path, otherwise basename only
-		// use CI_ENVIRONMENT constant if defined
-		$displayFile = (env('CI_ENVIRONMENT') === 'development') ? $this->file : basename($this->file);
-		// Return SVG placeholder with error message
+		$fullPath = $this->config->getSourcePath($this->file);
+		$reason = $this->placeholderReason ?? "Image not found: {$fullPath}";
+
 		return sprintf(
 			'<svg width="100%%" height="200" xmlns="http://www.w3.org/2000/svg">
             <rect width="100%%" height="100%%" fill="#f8f9fa"/>
             <text x="50%%" y="50%%" text-anchor="middle" fill="#6c757d" font-family="sans-serif">
-                Image not found: %s
+                %s
             </text>
         </svg>',
-			htmlspecialchars($displayFile)
+			htmlspecialchars($reason)
 		);
 	}
 
@@ -250,8 +237,6 @@ class SuperImage
 		$this->image = null;
 		$this->origWidth = null;
 		$this->origHeight = null;
-		$this->publicFile = null;
-		$this->originalExt = null;
 		$this->outputExt = $this->config->defaultOutputExt;
 		$this->widths = 'full';
 		$this->gutter = 0;
@@ -319,7 +304,6 @@ class SuperImage
 		if ($this->usePlaceholder) {
 			return;
 		}
-		$this->ensureFileParsed();
 		$layoutWidths = $this->calculateLayoutWidths();
 		$this->buildResolutionDict($layoutWidths);
 	}
@@ -333,65 +317,36 @@ class SuperImage
 			return;
 		}
 
-		$cacheKey = $this->getImageCacheKey($this->file);
+		$sourcePath = $this->config->getSourcePath($this->file);
+		$cacheKey = $this->getImageCacheKey($sourcePath);
+
 		if (isset(self::$imageMetaCache[$cacheKey])) {
 			$meta = self::$imageMetaCache[$cacheKey];
 			$this->origWidth = $meta['width'];
 			$this->origHeight = $meta['height'];
-			$this->originalExt = $meta['originalExt'];
-			$this->publicFile = $meta['publicFile'];
 			return;
 		}
+
 		try {
-			$this->image = new Image($this->file, false);
+			$this->image = new Image($sourcePath, false);
 			if (!$this->origWidth || !$this->origHeight) {
 				$props = $this->image->getProperties(true);
 				$this->origWidth = $props['width'];
 				$this->origHeight = $props['height'];
 			}
-			$this->parseFilePathFromPath($this->image->getPathname());
+
+			// Extract extension from loaded image (to confirm)
+			$pathInfo = pathinfo($this->image->getPathname());
+
 			self::$imageMetaCache[$cacheKey] = [
 				'width' => $this->origWidth,
 				'height' => $this->origHeight,
-				'publicFile' => $this->publicFile,
-				'originalExt' => $this->originalExt,
 			];
 		} catch (\Exception $e) {
 			// Image doesn't exist or is invalid
-			// Return placeholder image HTML instead of throwing
 			$this->usePlaceholder = true;
-			$this->placeholderReason = $e->getMessage();
+			$this->placeholderReason = "Failed to load image {$sourcePath}: " . $e->getMessage();
 		}
-	}
-
-	/**
-	 * Parse file path to extract name and extension
-	 */
-	protected function parseFilePath(): void
-	{
-		$this->parseFilePathFromPath($this->image->getPathname());
-	}
-
-	/**
-	 * Parse file path to extract name and extension from a path string
-	 */
-	protected function parseFilePathFromPath(string $path): void
-	{
-		$pathInfo = pathinfo($path);
-		$this->originalExt = $pathInfo['extension'] ?? $this->originalExt;
-		$this->publicFile = $pathInfo['filename'] ?? $this->publicFile; // publicUrlPrefix is added in URL generator
-	}
-
-	/**
-	 * Ensure file info is parsed even when image is not loaded
-	 */
-	protected function ensureFileParsed(): void
-	{
-		if ($this->originalExt && $this->publicFile) {
-			return;
-		}
-		$path = $this->image ? $this->image->getPathname() : $this->file;
-		$this->parseFilePathFromPath($path);
 	}
 
 	/**
@@ -679,10 +634,9 @@ class SuperImage
 	protected function getImageUrl(int $width): string
 	{
 		return $this->config->imageUrl(
-			$this->publicFile,
-			$this->originalExt,
+			$this->file,
+			$width,
 			$this->outputExt,
-			$width
 		);
 	}
 

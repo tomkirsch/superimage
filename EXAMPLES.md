@@ -12,7 +12,8 @@ These mirror the test page examples and are meant as a fast reference.
 
 ```php
 <?php
-$url = \Config\Services::superImage(['file' => WRITEPATH . 'img/hero.jpg'])
+// Pass relative base name WITH extension
+$url = \Config\Services::superImage(['file' => 'hero.jpg'])
     ->imgUrl(1200);
 ```
 
@@ -20,7 +21,7 @@ $url = \Config\Services::superImage(['file' => WRITEPATH . 'img/hero.jpg'])
 
 ```php
 <?= \Config\Services::superImage()->render([
-    'src' => WRITEPATH . 'img/product_4.jpg',
+    'src' => 'product_4.jpg',
     'alt' => 'User avatar',
     'static' => true,
     'widths' => [100, 200, 300],
@@ -33,7 +34,7 @@ $url = \Config\Services::superImage(['file' => WRITEPATH . 'img/hero.jpg'])
 
 ```php
 <?= \Config\Services::superImage()->render([
-    'src' => WRITEPATH . 'img/hero.jpg',
+    'src' => 'hero.jpg',
     'alt' => 'Full width hero',
     'widths' => 'full',
     'loading' => 'eager',
@@ -45,7 +46,7 @@ $url = \Config\Services::superImage(['file' => WRITEPATH . 'img/hero.jpg'])
 
 ```php
 <?= \Config\Services::superImage()->render([
-    'src' => WRITEPATH . 'img/product_1.jpg',
+    'src' => 'product_1.jpg',
     'alt' => 'Half width image',
     'widths' => 'half',
     'loading' => 'lazy',
@@ -57,7 +58,7 @@ $url = \Config\Services::superImage(['file' => WRITEPATH . 'img/hero.jpg'])
 ```php
 <?php for ($i = 1; $i <= 3; $i++): ?>
     <?= \Config\Services::superImage()->render([
-        'src' => WRITEPATH . "img/product_{$i}.jpg",
+        'src' => "product_{$i}.jpg",
         'alt' => "Product {$i}",
         'pictureAttr' => ['style' => 'aspect-ratio: 1/1; overflow: hidden;'],
         'imgAttr' => ['style' => 'object-fit: cover; width: 100%; height: 100%;'],
@@ -73,7 +74,7 @@ $url = \Config\Services::superImage(['file' => WRITEPATH . 'img/hero.jpg'])
 
 ```php
 <?= \Config\Services::superImage()->render([
-    'src' => WRITEPATH . 'img/product_2.jpg',
+    'src' => 'product_2.jpg',
     'alt' => 'Custom layout',
     'widths' => [
         1400 => 660,
@@ -89,7 +90,7 @@ $url = \Config\Services::superImage(['file' => WRITEPATH . 'img/hero.jpg'])
 
 ```php
 <?= \Config\Services::superImage()->render([
-    'src' => WRITEPATH . 'img/product_3.jpg',
+    'src' => 'product_3.jpg',
     'alt' => 'Thumbnail',
     'widths' => 0.33,
     'gutter' => 24,

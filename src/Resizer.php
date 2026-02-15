@@ -108,14 +108,13 @@ class Resizer
 		}
 
 		// check freshness
-		$currentVersion = $this->config->getCacheVersion($request->basePath, $request->originalExt);
+		$currentVersion = $this->config->getCacheVersion($request->basePath);
 		if ($request->version !== $currentVersion) {
 			// The user requested an old version. Redirect them to the current one.
 			$newUrl = $this->config->imageUrl(
 				$request->basePath,
-				$request->originalExt,
-				$request->outputExt,
-				$request->width
+				$request->width,
+				$request->outputExt
 			);
 			// Grab the response, set the header, and exit
 			response()->redirect($newUrl, 'auto', 301)->send();
@@ -123,7 +122,7 @@ class Resizer
 		}
 
 		// Get source file
-		$sourcePath = $this->config->getSourcePath($request->basePath, $request->originalExt);
+		$sourcePath = $this->config->getSourcePath($request->basePath);
 
 		if (!file_exists($sourcePath)) {
 			throw new \CodeIgniter\Exceptions\PageNotFoundException("Image not found: {$sourcePath}");
@@ -143,7 +142,7 @@ class Resizer
 		}
 
 		// Output the image
-		$this->output($cachePath, $request->outputExt);
+		$this->output($cachePath);
 	}
 
 	/**
@@ -214,14 +213,16 @@ class Resizer
 			->save($cachePath);
 	}
 
-	protected function output(string $filePath, string $ext): void
+	protected function output(string $filePath, ?string $mimeType = null): void
 	{
 		while (ob_get_level()) {
 			ob_end_clean();
 		}
-
-		$mime = $this->getMimeType($ext);
-		header("Content-Type: {$mime}");
+		if (empty($mimeType)) {
+			$ext = pathinfo($filePath, PATHINFO_EXTENSION);
+			$mimeType = $this->getMimeType($ext);
+		}
+		header("Content-Type: {$mimeType}");
 		header("Content-Length: " . filesize($filePath));
 		header("Last-Modified: " . gmdate('D, d M Y H:i:s T', filemtime($filePath)));
 
@@ -232,10 +233,10 @@ class Resizer
 		if (env('CI_ENVIRONMENT') === 'development') {
 			header("X-Superimage-Cache: " . ($this->wasResized ? 'write' : 'php'));
 			$sourceFile = $this->config->getSourcePath(
-				$this->config->parseImageRequest(basename($filePath))->basePath,
-				$this->config->parseImageRequest(basename($filePath))->originalExt
+				$this->config->parseImageRequest(basename($filePath))->basePath
 			);
 			header("X-Superimage-Source: " . $sourceFile);
+			header("X-Superimage-Cache-File: " . $filePath);
 		}
 
 		readfile($filePath);
