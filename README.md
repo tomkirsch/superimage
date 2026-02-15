@@ -142,12 +142,11 @@ $routes->get('img/(.+)', 'Home::serveImage/$1');
 ```php
     /**
      * Serve image request
-     * @param string $path Image path with width, version, etc.
      */
-    public function serveImage($path)
+    public function serveImage(...$path)
     {
-        $resizer = \Config\Services::resizer();
-        $resizer->serve($path);
+        $path = implode("/", $path);
+        return \Config\Services::resizer()->serve($path);
     }
 ```
 
