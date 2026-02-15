@@ -87,7 +87,7 @@ You might need to change the path to the DOCUMENT_ROOT above to match your setup
 ## config/Services.php
 
 ```php
-    public static function superImage($options = null, ?bool $getShared = true)
+    public static function superImage($options = null, ?bool $getShared = true): \Tomkirsch\SuperImage\SuperImage
     {
         if (is_bool($options)) {
             $getShared = $options;
@@ -112,7 +112,7 @@ You might need to change the path to the DOCUMENT_ROOT above to match your setup
         return $instance;
     }
 
-    public static function resizer(?bool $getShared = true)
+    public static function resizer(?bool $getShared = true): \Tomkirsch\SuperImage\Resizer
     {
         if ($getShared) {
             return static::getSharedInstance('resizer');
