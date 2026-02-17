@@ -498,7 +498,7 @@ class SuperImage
 	}
 
 	/**
-	 * Render dynamic responsive image (picture element)
+	 * Render dynamic image (picture element)
 	 */
 	protected function renderDynamic(): string
 	{
@@ -633,6 +633,9 @@ class SuperImage
 	 */
 	protected function getImageUrl(int $width): string
 	{
+		// Ensure we don't generate images larger than the original or maxWidth constraint
+		$width = min($width, $this->config->maxSize);
+
 		return $this->config->imageUrl(
 			$this->file,
 			$width,
