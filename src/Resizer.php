@@ -108,12 +108,13 @@ class Resizer
 		}
 
 		// check freshness
-		$currentVersion = $this->config->getCacheVersion($request->basePath);
+		$currentVersion = $this->config->getCacheVersion($request);
 		if ($request->version !== $currentVersion) {
 			// The user requested an old version. Redirect them to the current one.
 			$newUrl = $this->config->imageUrl(
 				$request->basePath,
 				$request->width,
+				$currentVersion,
 				$request->outputExt
 			);
 			// Grab the response, set the header, and exit
@@ -140,7 +141,7 @@ class Resizer
 		} else {
 			$this->wasResized = false;
 		}
-
+		dd($cachePath);
 		// Output the image
 		$this->output($cachePath);
 	}
@@ -211,6 +212,9 @@ class Resizer
 
 		$this->imageLib->resize($width, $height)
 			->save($cachePath);
+
+		// file saving hook
+		$this->config->onFileSave($cachePath, $request);
 	}
 
 	protected function output(string $filePath, ?string $mimeType = null): void

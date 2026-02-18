@@ -1,6 +1,6 @@
 # SuperImage - Responsive Images for CodeIgniter 4
 
-A modern, high-performance responsive image library with on-the-fly resizing, hybrid caching, and modern HTML support. The lib uses filemtime() to determine freshness of the hires asset - if a stale asset is requested, a 301 redirect is issued to the latest version.
+A modern responsive image library for CodeIgniter 4 with on-the-fly resizing, versioned cache filenames, and modern HTML output (`<picture>` / `<img srcset>`). By default (`cacheBustingMethod = 'mtime'`), stale requests are redirected (301) to the current versioned URL.
 
 ## Install
 
@@ -19,9 +19,11 @@ namespace Config;
 
 class SuperImage extends \Tomkirsch\SuperImage\SuperImageConfig
 {
-    public string $sourcePath = WRITEPATH . 'img'; // where your hires assets live
+    public string $sourcePath = WRITEPATH . 'img/'; // where your hires assets live
     public string $cachePath = FCPATH . '_superimage_cache/'; // MUST be in public for direct Apache caching (no PHP overhead)
     public string $servingStrategy = 'htaccess'; // most efficient. falls back to php's readfile()
+    public string $publicUrlPrefix = 'img/';
+    public string $defaultOutputExt = 'webp';
     public bool $enableCacheBusting = true;
     public string $cacheBustingMethod = 'mtime'; // use mtime so updated images get automatically stale
 }
@@ -42,15 +44,16 @@ Paste this after RewriteEngine ON:
     # SUPERIMAGE SERVING
     # ============================================================================
     # These rules MUST come BEFORE CodeIgniter's main rewrite rules
-    # Match pattern: img/{anything}-w{number}.{ext}
+    # Match pattern: img/{anything}-w{number}-v{version}.{ext}
     # Examples:
-    #   /img/image_1.jpg-w1200.webp
-    #   /img/products/photo.jpg-w800.jpg
-    #   /img/blog/hero.jpg-w1920.png
+    #   /img/image_1.jpg-w1200-v1737063600.webp
+    #   /img/products/photo.jpg-w800-v1737063600.jpg
+    #   /img/blog/hero.jpg-w1920-v1737063600.png
 
     # Check if the cached version of the requested image exists
     # We use a look-ahead to capture the groups from the rule below
-    RewriteCond %{DOCUMENT_ROOT}/public/_superimage_cache/$1-w$2-v$3.$4 -f
+    # NOTE: this will NOT work when serving via spark!
+    RewriteCond %{DOCUMENT_ROOT}/_superimage_cache/$1-w$2-v$3.$4 -f
 
     # If it exists, serve it and stop (L)!
     # (comment out the CI redirect to test true apache cache serving)
@@ -128,7 +131,7 @@ $routes->get('img/(.+)', 'Home::serveImage/$1');
     public function serveImage(...$path)
     {
         $path = implode("/", $path);
-        return \Config\Services::resizer()->serve($path);
+        \Config\Services::resizer()->serve($path);
     }
 ```
 
@@ -142,11 +145,24 @@ The `src` parameter must be a relative base filename with extension:
 'src' => 'products/photo_1.png'   // relative base name with subdirectory and extension
 ```
 
-The source path is resolved automatically from your config's `$sourcePath` setting. The class automatically extracts the extension.
+The source path is resolved from your config's `$sourcePath` setting.
+
+### Supported `render()` options (current `SuperImage` class)
+
+`src` is an alias for `file`.
+
+- `src` / `file`
+- `outputExt`
+- `widths` (`'full'`, `'half'`, `'third'`, `'quarter'`, `'two-thirds'`, array, or decimal fraction)
+- `gutter`, `static`, `maxResolution`, `resolutionStep`
+- `maxWidth`, `maxHeight` (supports `'source'`)
+- `loading` (`'lazy' | 'eager' | 'auto'`)
+- `fetchPriority` (`'high' | 'low' | 'auto'`)
+- `alt`, `cacheVersion`, `pictureAttr`, `imgAttr`, `prettyPrint`
 
 ---
 
-The load priority should be carefully set to avoid writing many too many images on a single page load!
+Set loading behavior carefully to avoid writing too many variants during a single page load.
 Above-fold:
 
 ```php
@@ -154,7 +170,7 @@ Above-fold:
     'src' => 'hero.jpg',
     'widths' => 'full',
     'loading' => 'eager',
-    'priority' => 'high'
+    'fetchPriority' => 'high'
 ]) ?>
 ```
 
@@ -165,9 +181,18 @@ Below-fold:
     'src' => 'product_1.jpg',
     'widths' => 'full',
     'loading' => 'lazy',
-    'priority'=>'low',
+    'fetchPriority' => 'low',
 ]) ?>
 ```
+
+## Resizer utility methods
+
+From `\Config\Services::resizer()`:
+
+- `serve(string $requestPath): void`
+- `cleanExpired(): int`
+- `cleanImage(string $basePath): int`
+- `cleanAll(): int`
 
 #### Testing .htaccess serving
 

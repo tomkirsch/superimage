@@ -12,6 +12,31 @@ use CodeIgniter\Images\Image;
 class SuperImage
 {
 	/**
+	 * Runtime option keys supported by SuperImage.
+	 */
+	protected const RUNTIME_OPTION_KEYS = [
+		'file',
+		'outputExt',
+		'widths',
+		'gutter',
+		'static',
+		'maxResolution',
+		'resolutionStep',
+		'maxWidth',
+		'maxHeight',
+		'loading',
+		'fetchPriority',
+		'lqip',
+		'alt',
+		'cacheVersion',
+		'pictureAttr',
+		'imgAttr',
+		'prettyPrint',
+		'origWidth',
+		'origHeight',
+	];
+
+	/**
 	 * LQIP setting to use the source image at the smallest breakpoint width as the placeholder
 	 */
 	const LQIP_XS = 'xs';
@@ -45,11 +70,6 @@ class SuperImage
 	 * Relative base filename WITH extension (e.g., 'hero.jpg' or 'products/product_1.jpg')
 	 */
 	protected string $file;
-
-	/**
-	 * Source Image instance
-	 */
-	protected ?Image $image = null;
 
 	/**
 	 * Source image width/height
@@ -118,6 +138,11 @@ class SuperImage
 	protected string $alt = '';
 
 	/**
+	 * Force cache version
+	 */
+	protected ?string $cacheVersion = null;
+
+	/**
 	 * Custom attributes for picture element
 	 */
 	protected array $pictureAttr = [];
@@ -159,7 +184,7 @@ class SuperImage
 	 */
 	public function load(array $options = []): self
 	{
-		$this->loadedOptions = $options;
+		$this->loadedOptions = $this->normalizeOptions($options);
 		return $this;
 	}
 
@@ -172,8 +197,7 @@ class SuperImage
 	public function render(array $options = []): string
 	{
 		$this->reset();
-		$this->applyOptions($this->loadedOptions);
-		$this->applyOptions($options);
+		$this->applyResolvedOptions($this->resolveOptions($options));
 		$this->validate();
 		$this->prepare();
 
@@ -194,8 +218,7 @@ class SuperImage
 	public function imgUrl(?int $width = null, array $options = []): string
 	{
 		$this->reset();
-		$this->applyOptions($this->loadedOptions);
-		$this->applyOptions($options);
+		$this->applyResolvedOptions($this->resolveOptions($options));
 		$this->validate();
 
 		if ($width === null) {
@@ -233,54 +256,52 @@ class SuperImage
 	 */
 	protected function reset(): void
 	{
-		$this->file = '';
-		$this->image = null;
 		$this->origWidth = null;
 		$this->origHeight = null;
-		$this->outputExt = $this->config->defaultOutputExt;
-		$this->widths = 'full';
-		$this->gutter = 0;
-		$this->static = false;
-		$this->maxResolution = $this->config->defaultMaxResolution;
-		$this->resolutionStep = $this->config->defaultResolutionStep;
-		$this->maxWidth = self::HIRES_SOURCE;
-		$this->maxHeight = self::HIRES_SOURCE;
-		$this->loading = $this->config->defaultLoading;
-		$this->fetchPriority = $this->config->defaultFetchPriority;
-		$this->lqip = $this->config->defaultLqip;
-		$this->alt = '';
-		$this->pictureAttr = [];
-		$this->imgAttr = [];
-		$this->prettyPrint = $this->config->prettyPrint;
+		$this->applyResolvedOptions($this->config->renderDefaults());
 		$this->resolutionDict = null;
 		$this->usePlaceholder = false;
 		$this->placeholderReason = null;
 	}
 
 	/**
-	 * Apply options from config array
+	 * Resolve runtime options with precedence:
+	 * defaults < loaded options < render options.
 	 */
-	protected function applyOptions(array $options): void
+	protected function resolveOptions(array $options): array
 	{
+		$loaded = $this->normalizeOptions($this->loadedOptions);
+		$runtime = $this->normalizeOptions($options);
+
+		return array_replace($this->config->renderDefaults(), $loaded, $runtime);
+	}
+
+	/**
+	 * Normalize and validate option keys.
+	 */
+	protected function normalizeOptions(array $options): array
+	{
+		$normalized = [];
+
 		foreach ($options as $key => $value) {
-			switch ($key) {
-				case 'src':
-				case 'file':
-					$this->file = $value;
-					break;
-				case 'lazy':
-					$this->loading = $value ? 'lazy' : 'auto';
-					break;
-				case 'eager':
-					$this->loading = $value ? 'eager' : 'auto';
-					break;
-				case 'priority':
-					$this->fetchPriority = $value;
-					break;
-				default:
-					if (property_exists($this, $key)) {
-						$this->$key = $value;
-					}
+			$normalizedKey = $key === 'src' ? 'file' : $key;
+			if (!in_array($normalizedKey, self::RUNTIME_OPTION_KEYS, true)) {
+				throw new \InvalidArgumentException("Unknown SuperImage option: {$key}");
+			}
+			$normalized[$normalizedKey] = $value;
+		}
+
+		return $normalized;
+	}
+
+	/**
+	 * Apply resolved runtime options to object properties.
+	 */
+	protected function applyResolvedOptions(array $options): void
+	{
+		foreach (self::RUNTIME_OPTION_KEYS as $key) {
+			if (array_key_exists($key, $options)) {
+				$this->$key = $options[$key];
 			}
 		}
 	}
@@ -313,7 +334,7 @@ class SuperImage
 	 */
 	protected function loadImage(): void
 	{
-		if ($this->image && $this->origWidth && $this->origHeight) {
+		if ($this->origWidth && $this->origHeight) {
 			return;
 		}
 
@@ -328,16 +349,12 @@ class SuperImage
 		}
 
 		try {
-			$this->image = new Image($sourcePath, false);
+			$image = new Image($sourcePath, false);
 			if (!$this->origWidth || !$this->origHeight) {
-				$props = $this->image->getProperties(true);
+				$props = $image->getProperties(true);
 				$this->origWidth = $props['width'];
 				$this->origHeight = $props['height'];
 			}
-
-			// Extract extension from loaded image (to confirm)
-			$pathInfo = pathinfo($this->image->getPathname());
-
 			self::$imageMetaCache[$cacheKey] = [
 				'width' => $this->origWidth,
 				'height' => $this->origHeight,
@@ -643,6 +660,7 @@ class SuperImage
 		return $this->config->imageUrl(
 			$this->file,
 			$width,
+			$this->cacheVersion,
 			$this->outputExt,
 		);
 	}

@@ -132,6 +132,22 @@ class SuperImageConfig extends BaseConfig
     // =========================================================================
 
 	/**
+	 * File save hook - called after a resized image is saved.
+	 * @param string $filePath Full path to the saved file.
+	 * @param object $request Object with properties: basePath, width, version, outputExt.
+	 */
+	public function onFileSave(string $filePath, object $request): void
+	{
+		/**
+		 * Override in subclass if needed.
+		 * Example:
+		 * 
+		 * // Update file mtime to match source file for DB images
+		 * touch($filePath, $request->version);
+		 */
+	}
+
+	/**
 	 * Generate the public-facing image URL with versioning in the filename
 	 * Pattern: path/to/file.jpg-w600-v12345678.webp
 	 *
@@ -139,13 +155,14 @@ class SuperImageConfig extends BaseConfig
 	 * @param int $width Target width in pixels.
 	 * @param string|null $outputExt Output file extension.
 	 */
-	public function imageUrl(string $filePath, int $width, ?string $outputExt = null): string
+	public function imageUrl(string $filePath, int $width, ?string $cacheVersion = null, ?string $outputExt = null): string
 	{
-		if (!file_exists($this->getSourcePath($filePath))) {
-			throw new \Exception("Source file does not exist: " . $this->getSourcePath($filePath));
-		}
-
-		$version = $this->getCacheVersion($filePath);
+		$request = (object)[
+			'basePath' => $filePath,
+			'width' => $width,
+			'outputExt' => $outputExt ?? $this->defaultOutputExt,
+		];
+		$version = $this->getCacheVersion($request, $cacheVersion);
 		$outputExt = $outputExt ?? $this->defaultOutputExt;
 
 		// Construct filename: filename-w{width}-v{version}.{ext}
@@ -189,20 +206,27 @@ class SuperImageConfig extends BaseConfig
 	/**
 	 * Get the version string based on cache busting method.
 	 *
-	 * @param string $filePath Base path without sourcePath.
+	 * @param object $request Expected properties: basePath, width, version, outputExt.
+	 * @param string|null $cacheVersion Optional override version.
 	 */
-	public function getCacheVersion(string $filePath): string
+	public function getCacheVersion(object $request, ?string $cacheVersion = null): string
 	{
+		if ($cacheVersion !== null) {
+			return $cacheVersion;
+		}
+		$sourceFile = $this->getSourcePath($request->basePath);
 		switch ($this->cacheBustingMethod) {
 			case 'mtime':
-				$sourceFile = $this->getSourcePath($filePath);
-				return (string)filemtime($sourceFile);
+				$cacheVersion = file_exists($sourceFile) ? (string)filemtime($sourceFile) : '0';
+				break;
 			case 'time':
-				return (string)time();
+				$cacheVersion = (string)time();
+				break;
 			case 'app':
 			default:
-				return $this->appVersion;
+				$cacheVersion = $this->appVersion;
 		}
+		return $cacheVersion;
 	}
 
 	/**
@@ -270,5 +294,31 @@ class SuperImageConfig extends BaseConfig
 	public function breakpoints(): array
 	{
 		return $this->breakpoints;
+	}
+
+	/**
+	 * Return default render-time options.
+	 */
+	public function renderDefaults(): array
+	{
+		return [
+			'file' => '',
+			'outputExt' => $this->defaultOutputExt,
+			'widths' => 'full',
+			'gutter' => 0,
+			'static' => false,
+			'maxResolution' => $this->defaultMaxResolution,
+			'resolutionStep' => $this->defaultResolutionStep,
+			'maxWidth' => SuperImage::HIRES_SOURCE,
+			'maxHeight' => SuperImage::HIRES_SOURCE,
+			'loading' => $this->defaultLoading,
+			'fetchPriority' => $this->defaultFetchPriority,
+			'lqip' => $this->defaultLqip,
+			'alt' => '',
+			'cacheVersion' => null,
+			'pictureAttr' => [],
+			'imgAttr' => [],
+			'prettyPrint' => $this->prettyPrint,
+		];
 	}
 }
