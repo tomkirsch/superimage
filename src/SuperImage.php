@@ -479,7 +479,7 @@ class SuperImage
 			}
 		}
 
-		if (!isset($this->resolutionDict[0])) {
+		if (!isset($this->resolutionDict[0]) || empty($this->resolutionDict[0])) {
 			$this->resolutionDict[0] = ['1' => min($maxWidth, 540)];
 		}
 	}
@@ -521,6 +521,10 @@ class SuperImage
 			}
 
 			$srcsetStr = implode(', ', $srcset);
+			if ($srcsetStr === '') {
+				continue;
+			}
+
 			$media = "(min-width: {$viewportWidth}px)";
 
 			$sourceAttr = [
