@@ -87,37 +87,19 @@ You might need to change the path to the DOCUMENT_ROOT above to match your setup
 ## config/Services.php
 
 ```php
-    public static function superImage($options = null, ?bool $getShared = true): \Tomkirsch\SuperImage\SuperImage
+    public static function superImage(?array $options = null, ?SuperImageConfig $config = null): \Tomkirsch\SuperImage\SuperImage
     {
-        if (is_bool($options)) {
-            $getShared = $options;
-            $options = null;
-        }
-
-        if (is_array($options)) {
-            $getShared = false;
-        }
-
-        if ($getShared) {
-            return static::getSharedInstance('superImage');
-        }
-
-        $config = new \Config\SuperImage();
+        $config = $config ?? new \Config\SuperImage();
         $instance = new \Tomkirsch\SuperImage\SuperImage($config);
-
-        if (is_array($options) && !empty($options)) {
+        if (!empty($options)) {
             $instance->load($options);
         }
-
         return $instance;
     }
 
-    public static function resizer(?bool $getShared = true): \Tomkirsch\SuperImage\Resizer
+    public static function resizer(?SuperImageConfig $config = null): \Tomkirsch\SuperImage\Resizer
     {
-        if ($getShared) {
-            return static::getSharedInstance('resizer');
-        }
-        $config = new \Config\SuperImage();
+        $config = $config ?? new \Config\SuperImage();
         return new \Tomkirsch\SuperImage\Resizer($config);
     }
 ```
