@@ -202,3 +202,93 @@ Comment out the CI rewrite, clear cache, and refresh the browser. You should NOT
 #### If you still see X-Superimage-Cache header...
 
 Mess with the DOCUMENT_ROOT paths until it goes away.
+
+## View Examples
+
+### Hero — above the fold, full width
+
+```php
+<?= \Config\Services::superImage()->render([
+    'src'           => 'hero.jpg',
+    'alt'           => 'Hero image',
+    'widths'        => 'full',
+    'loading'       => 'eager',
+    'fetchPriority' => 'high',
+]) ?>
+```
+
+### Product grid — three columns with gutter
+
+```php
+<?php for ($i = 1; $i <= 3; $i++): ?>
+    <?= \Config\Services::superImage()->render([
+        'src'     => "product_$i.jpg",
+        'alt'     => "Product $i",
+        'widths'  => 'third',
+        'gutter'  => 30,
+        'loading' => $i === 1 ? 'eager' : 'lazy',
+    ]) ?>
+<?php endfor; ?>
+```
+
+### Responsive layout — full → half → third across breakpoints
+
+Use `SuperImageWidths` when the image occupies different fractions of the viewport at different screen sizes. Each `at()` call is a `min-width`, matching CSS media query logic.
+
+```php
+<?= \Config\Services::superImage()->render([
+    'src'     => 'featured.jpg',
+    'alt'     => 'Featured article',
+    'loading' => 'lazy',
+    'widths'  => \Tomkirsch\SuperImage\SuperImageWidths::make()
+        ->full()             // 0px+:    100% (mobile)
+        ->at(800, 'half')    // 800px+:   50% (tablet)
+        ->at(1024, 'third')  // 1024px+:  33% (desktop)
+]) ?>
+```
+
+Raw decimals and `gutter` also work:
+
+```php
+'widths' => \Tomkirsch\SuperImage\SuperImageWidths::make()
+    ->at(0, 1.0)
+    ->at(768, 0.6)
+    ->at(1200, 0.4),
+'gutter' => 24,
+```
+
+### Reuse config across multiple images with `load()`
+
+```php
+<?php $si = \Config\Services::superImage()->load([
+    'widths'  => 'quarter',
+    'loading' => 'lazy',
+    'gutter'  => 16,
+]); ?>
+
+<?= $si->render(['src' => 'gallery/photo-1.jpg', 'alt' => 'Photo 1']) ?>
+<?= $si->render(['src' => 'gallery/photo-2.jpg', 'alt' => 'Photo 2']) ?>
+<?= $si->render(['src' => 'gallery/photo-3.jpg', 'alt' => 'Photo 3']) ?>
+```
+
+### Static `<img srcset>` for fixed-size images (avatars, icons)
+
+```php
+<?= \Config\Services::superImage()->render([
+    'src'     => 'avatar.jpg',
+    'alt'     => 'User avatar',
+    'static'  => true,
+    'widths'  => [100, 200, 300],
+    'imgAttr' => ['class' => 'rounded-circle'],
+]) ?>
+```
+
+### Plain URL for CSS backgrounds
+
+```php
+$url = \Config\Services::superImage()->imgUrl(800, ['src' => 'banner.jpg']);
+```
+
+```html
+<div style="background-image: url('<?= $url ?>')"></div>
+```
