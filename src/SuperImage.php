@@ -72,29 +72,17 @@ class SuperImageWidths
 	 * Resolve to a pixel-width array using config containers.
 	 * Called internally by SuperImage::calculateLayoutWidths().
 	 */
-	public function resolve(array $containers, int $gutter = 0): array
+	public function resolve(int $gutter = 0): array
 	{
-		if (empty($this->breakpoints)) {
-			throw new \Exception('SuperImageWidths: no breakpoints defined.');
-		}
-
-		// Sort ascending so we can walk from smallest to largest
 		ksort($this->breakpoints);
-		$sortedBreakpoints = $this->breakpoints;
-
 		$widths = [];
 
-		foreach ($containers as $containerWidth) {
-			// Find which fraction applies: the largest minWidth <= containerWidth
-			$fraction = reset($sortedBreakpoints); // fallback: smallest defined
-			foreach ($sortedBreakpoints as $minWidth => $f) {
-				if ($containerWidth >= $minWidth) {
-					$fraction = $f;
-				}
+		foreach ($this->breakpoints as $minWidth => $value) {
+			if (is_array($value)) {
+				$widths[$minWidth] = max(1, $value['px'] - $gutter);
+			} else {
+				$widths[$minWidth] = max(1, (int)($minWidth * $value) - $gutter);
 			}
-			$widths[$containerWidth] = is_array($fraction)
-				? max(1, $fraction['px'] - $gutter)
-				: max(1, (int)($containerWidth * $fraction) - $gutter);
 		}
 
 		return $widths;
@@ -490,10 +478,7 @@ class SuperImage
 	{
 		// fluent builder
 		if ($this->widths instanceof SuperImageWidths) {
-			return $this->widths->resolve(
-				array_values($this->config->containers()),
-				$this->gutter
-			);
+			return $this->widths->resolve($this->gutter);
 		}
 
 		if (is_string($this->widths)) {
@@ -702,7 +687,7 @@ class SuperImage
 		if (empty($widths)) {
 			$widths[] = 540; // fallback width
 		}
-		$fallbackWidth = min($widths);
+		$fallbackWidth = reset($this->resolutionDict[0]);
 		$attr['src'] = $this->getImageUrl($fallbackWidth);
 
 		$attr['alt'] = $this->alt;
