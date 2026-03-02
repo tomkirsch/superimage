@@ -5,6 +5,106 @@ namespace Tomkirsch\SuperImage;
 use CodeIgniter\Images\Image;
 
 /**
+ * Fluent builder for responsive image width breakpoints.
+ *
+ * Usage:
+ *   SuperImageWidths::make()
+ *       ->full()            // 0px+: full container width
+ *       ->at(800, 'half')   // 800px+: half container width
+ *       ->at(1024, 'third') // 1024px+: one-third container width
+ */
+class SuperImageWidths
+{
+	protected array $breakpoints = [];
+
+	protected const PRESETS = [
+		'full'       => 1.0,
+		'half'       => 0.5,
+		'third'      => 1 / 3,
+		'quarter'    => 0.25,
+		'two-thirds' => 2 / 3,
+	];
+
+	public static function make(): self
+	{
+		return new self();
+	}
+
+	/**
+	 * Add a breakpoint. $width is the min-width in px (0 = mobile default).
+	 * $fraction can be a preset name ('half', 'third', etc.) or a float (0.0–1.0).
+	 */
+	public function at(int $minWidth, string|float $fraction): self
+	{
+		$this->breakpoints[$minWidth] = $this->resolveFraction($fraction);
+		return $this;
+	}
+
+	// Shorthand helpers
+	public function full(int $minWidth = 0): self
+	{
+		return $this->at($minWidth, 1.0);
+	}
+	public function half(int $minWidth = 0): self
+	{
+		return $this->at($minWidth, 0.5);
+	}
+	public function third(int $minWidth = 0): self
+	{
+		return $this->at($minWidth, 1 / 3);
+	}
+	public function quarter(int $minWidth = 0): self
+	{
+		return $this->at($minWidth, 0.25);
+	}
+	public function twoThirds(int $minWidth = 0): self
+	{
+		return $this->at($minWidth, 2 / 3);
+	}
+
+	/**
+	 * Resolve to a pixel-width array using config containers.
+	 * Called internally by SuperImage::calculateLayoutWidths().
+	 */
+	public function resolve(array $containers, int $gutter = 0): array
+	{
+		if (empty($this->breakpoints)) {
+			throw new \Exception('SuperImageWidths: no breakpoints defined.');
+		}
+
+		// Sort ascending so we can walk from smallest to largest
+		ksort($this->breakpoints);
+		$sortedBreakpoints = $this->breakpoints;
+
+		$widths = [];
+
+		foreach ($containers as $containerWidth) {
+			// Find which fraction applies: the largest minWidth <= containerWidth
+			$fraction = reset($sortedBreakpoints); // fallback: smallest defined
+			foreach ($sortedBreakpoints as $minWidth => $f) {
+				if ($containerWidth >= $minWidth) {
+					$fraction = $f;
+				}
+			}
+			$widths[$containerWidth] = max(1, (int)($containerWidth * $fraction) - $gutter);
+		}
+
+		return $widths;
+	}
+
+	protected function resolveFraction(string|float $fraction): float
+	{
+		if (is_string($fraction)) {
+			if (!isset(self::PRESETS[$fraction])) {
+				throw new \InvalidArgumentException("Unknown SuperImageWidths preset: {$fraction}");
+			}
+			return self::PRESETS[$fraction];
+		}
+		return $fraction;
+	}
+}
+
+/**
  * SuperImage - Responsive image generation library
  * 
  * Generates responsive images with proper srcset/sizes attributes.
@@ -380,6 +480,14 @@ class SuperImage
 	 */
 	protected function calculateLayoutWidths(): array
 	{
+		// fluent builder
+		if ($this->widths instanceof SuperImageWidths) {
+			return $this->widths->resolve(
+				array_values($this->config->containers()),
+				$this->gutter
+			);
+		}
+
 		if (is_string($this->widths)) {
 			return $this->getPresetWidths($this->widths);
 		}
