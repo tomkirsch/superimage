@@ -141,7 +141,7 @@ class Resizer
 		} else {
 			$this->wasResized = false;
 		}
-		dd($cachePath);
+
 		// Output the image
 		$this->output($cachePath);
 	}
