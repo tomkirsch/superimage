@@ -62,6 +62,12 @@ class SuperImageWidths
 		return $this->at($minWidth, 2 / 3);
 	}
 
+	public function px(int $minWidth, int $pixels): self
+	{
+		$this->breakpoints[$minWidth] = ['px' => $pixels];
+		return $this;
+	}
+
 	/**
 	 * Resolve to a pixel-width array using config containers.
 	 * Called internally by SuperImage::calculateLayoutWidths().
@@ -86,7 +92,9 @@ class SuperImageWidths
 					$fraction = $f;
 				}
 			}
-			$widths[$containerWidth] = max(1, (int)($containerWidth * $fraction) - $gutter);
+			$widths[$containerWidth] = is_array($fraction)
+				? max(1, $fraction['px'] - $gutter)
+				: max(1, (int)($containerWidth * $fraction) - $gutter);
 		}
 
 		return $widths;
