@@ -211,11 +211,12 @@ class Resizer
 				}
 				$height = max(1, (int)round($width / $ratio));
 
-				$this->imageLib->resize($width, $height)->convert($type)->save($tmp);
+				$this->imageLib->resize($width, $height)->convert($type);
 			} catch (\CodeIgniter\Images\Exceptions\ImageException | \ErrorException | \ValueError | \TypeError $e) {
 				// header-valid but undecodable source: generic 404
 				throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
 			}
+			$this->imageLib->save($tmp);
 			if (!rename($tmp, $cachePath)) {
 				throw new \RuntimeException('Cannot write cache file');
 			}
