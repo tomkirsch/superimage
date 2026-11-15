@@ -192,37 +192,30 @@ class Resizer
 			$this->imageLib = \Config\Services::image('gd');
 		}
 
-		$this->imageLib->withFile($sourcePath);
-
-		$sourceWidth = $this->imageLib->getWidth();
-		$sourceHeight = $this->imageLib->getHeight();
-		$ratio = $sourceWidth / $sourceHeight;
-
-		$width = $request->width;
-
-		// Scale logic
-		if (!$this->config->allowUpscale && $width > $sourceWidth) {
-			$width = $sourceWidth;
-		}
-
-		$height = max(1, (int)round($width / $ratio));
-
-		if ($this->config->maxSize > 0) {
-			if ($width > $this->config->maxSize) {
-				$width = $this->config->maxSize;
-				$height = max(1, (int)round($width / $ratio));
-			}
-		}
-
 		// convert() must precede save() so the bytes match the extension
 		$type = ['webp' => IMAGETYPE_WEBP, 'png' => IMAGETYPE_PNG][$request->outputExt] ?? IMAGETYPE_JPEG;
-		$this->imageLib->resize($width, $height)
-			->convert($type);
-
 		// write to a temp name, then rename into place so readers never see a partial file
 		$tmp = $cachePath . '.' . bin2hex(random_bytes(6)) . '.tmp';
 		try {
-			$this->imageLib->save($tmp);
+			try {
+				$this->imageLib->withFile($sourcePath);
+				$sourceWidth = $this->imageLib->getWidth();
+				$ratio = $sourceWidth / $this->imageLib->getHeight();
+
+				$width = $request->width;
+				if (!$this->config->allowUpscale && $width > $sourceWidth) {
+					$width = $sourceWidth;
+				}
+				if ($this->config->maxSize > 0 && $width > $this->config->maxSize) {
+					$width = $this->config->maxSize;
+				}
+				$height = max(1, (int)round($width / $ratio));
+
+				$this->imageLib->resize($width, $height)->convert($type)->save($tmp);
+			} catch (\CodeIgniter\Images\Exceptions\ImageException | \ErrorException | \ValueError | \TypeError $e) {
+				// header-valid but undecodable source: generic 404
+				throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
+			}
 			if (!rename($tmp, $cachePath)) {
 				throw new \RuntimeException('Cannot write cache file');
 			}
