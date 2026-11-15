@@ -9,15 +9,22 @@ class EncodingTest extends HttpTestCase
 		$this->makeImage('a.jpg', 1200, 800, 'jpeg');
 		$this->makeImage('b.png', 1200, 800, 'png');
 		$this->startServer();
-		[$s, $body] = $this->get($this->reqPath('a.jpg', 400, 'webp'));
+		[$s, $body, $headers] = $this->get($this->reqPath('a.jpg', 400, 'webp'));
 		$this->assertSame(200, $s);
+		$this->assertSame('image/webp', $headers['content-type']);
 		$this->assertSame('RIFF', substr($body, 0, 4));
 		$this->assertSame('WEBP', substr($body, 8, 4));
-		[$s, $body] = $this->get($this->reqPath('b.png', 400, 'jpg'));
+		[$s, $body, $headers] = $this->get($this->reqPath('b.png', 400, 'jpg'));
+		$this->assertSame(200, $s);
+		$this->assertSame('image/jpeg', $headers['content-type']);
 		$this->assertSame("\xFF\xD8", substr($body, 0, 2));
-		[$s, $body] = $this->get($this->reqPath('a.jpg', 400, 'png'));
+		[$s, $body, $headers] = $this->get($this->reqPath('a.jpg', 400, 'png'));
+		$this->assertSame(200, $s);
+		$this->assertSame('image/png', $headers['content-type']);
 		$this->assertSame("\x89PNG", substr($body, 0, 4));
-		[$s, $body] = $this->get($this->reqPath('a.jpg', 400, 'JPEG'));
+		[$s, $body, $headers] = $this->get($this->reqPath('a.jpg', 400, 'JPEG'));
+		$this->assertSame(200, $s);
+		$this->assertSame('image/jpeg', $headers['content-type']);
 		$this->assertSame("\xFF\xD8", substr($body, 0, 2));
 	}
 

@@ -129,4 +129,3 @@ class SuperImageWidths
 		return $fraction;
 	}
 }
-

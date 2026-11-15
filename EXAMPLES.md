@@ -38,7 +38,7 @@ $url = \Config\Services::superImage(['file' => 'hero.jpg'])
     'alt' => 'Full width hero',
     'widths' => 'full',
     'loading' => 'eager',
-    'priority' => 'high',
+    'fetchPriority' => 'high',
 ]) ?>
 ```
 
@@ -64,7 +64,7 @@ $url = \Config\Services::superImage(['file' => 'hero.jpg'])
         'imgAttr' => ['style' => 'object-fit: cover; width: 100%; height: 100%;'],
         'widths' => 'third',
         'loading' => $i > 1 ? 'lazy' : 'eager',
-        'priority' => $i === 1 ? 'high' : 'auto',
+        'fetchPriority' => $i === 1 ? 'high' : 'auto',
         'gutter' => 15,
     ]) ?>
 <?php endfor; ?>
@@ -95,6 +95,6 @@ $url = \Config\Services::superImage(['file' => 'hero.jpg'])
     'widths' => 0.33,
     'gutter' => 24,
     'loading' => 'lazy',
-    'priority' => 'low',
+    'fetchPriority' => 'low',
 ]) ?>
 ```
