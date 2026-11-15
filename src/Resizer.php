@@ -126,18 +126,24 @@ class Resizer
 			throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
 		}
 
-		// check freshness
+		$size = @getimagesize($real);
+		if (!$size || $size[0] < 1) {
+			throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
+		}
+
+		// check width ladder and freshness
+		$snapped = $this->config->snapWidth($request->width, $size[0]);
 		$currentVersion = $this->config->getCacheVersion($request);
-		if ($request->version !== $currentVersion) {
-			// The user requested an old version. Redirect them to the current one.
+		if ($snapped !== $request->width || $request->version !== $currentVersion) {
+			// Off-ladder width or old version: redirect to the canonical URL (nothing is written)
 			$newUrl = $this->config->imageUrl(
 				$request->basePath,
-				$request->width,
+				$snapped,
 				$currentVersion,
 				$request->outputExt
 			);
 			// Grab the response, set the header, and exit
-			response()->redirect($newUrl, 'auto', 301)->send();
+			response()->redirect($newUrl, 'auto', $snapped !== $request->width ? 302 : 301)->send();
 			exit;
 		}
 

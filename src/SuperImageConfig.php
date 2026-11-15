@@ -123,6 +123,13 @@ class SuperImageConfig extends BaseConfig
 	 */
 	public int $maxSize = 3000;
 	/**
+	 * Widths (px) that may be generated. Requests for other widths are redirected to the next
+	 * ladder width up (or the cap), which bounds the number of cached files per image.
+	 *
+	 * @var int[]
+	 */
+	public array $widthLadder = [160, 240, 320, 400, 480, 560, 640, 720, 800, 960, 1120, 1280, 1440, 1600, 1920, 2240, 2560, 2880];
+	/**
 	 * Cache TTL in seconds (0 disables expiration cleanup).
 	 */
 	public int $cacheTTL = 0; 
@@ -169,6 +176,27 @@ class SuperImageConfig extends BaseConfig
 		$filename = "{$filePath}-w{$width}-v{$version}.{$outputExt}";
 
 		return base_url("{$this->publicUrlPrefix}{$filename}");
+	}
+
+	/**
+	 * Snap a width up to the width ladder. Allowed widths are the ladder entries below the cap, plus the cap
+	 * (source width, limited by maxSize; maxSize itself when upscaling is allowed).
+	 */
+	public function snapWidth(int $width, int $sourceWidth): int
+	{
+		$cap = $this->allowUpscale ? $this->maxSize : min($sourceWidth, $this->maxSize);
+		if ($this->maxSize <= 0) {
+			$cap = $sourceWidth;
+		}
+		$cap = max(1, $cap);
+		$ladder = $this->widthLadder;
+		sort($ladder);
+		foreach ($ladder as $step) {
+			if ($step >= $width && $step < $cap) {
+				return $step;
+			}
+		}
+		return $cap;
 	}
 
 	/**

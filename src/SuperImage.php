@@ -631,10 +631,14 @@ class SuperImage
 				continue;
 			}
 
-			$srcset = [];
+			$srcset = $seen = [];
 			foreach ($resolutions as $res => $width) {
 				$url = $this->getImageUrl($width);
 				$descriptor = floatval($res) > 1 ? " {$res}x" : '';
+				if (in_array($url, $seen, true)) {
+					continue; // snapped to a width already listed
+				}
+				$seen[] = $url;
 				$srcset[] = $url . $descriptor;
 			}
 
@@ -712,7 +716,7 @@ class SuperImage
 					$allWidths[] = $width;
 				}
 			}
-			$allWidths = array_unique($allWidths);
+			$allWidths = array_unique(array_map(fn($w) => $this->snapWidth($w), $allWidths));
 			sort($allWidths);
 
 			foreach ($allWidths as $width) {
@@ -750,13 +754,23 @@ class SuperImage
 		return implode(', ', $sizes);
 	}
 
+	protected function snapWidth(int $width): int
+	{
+		return $this->origWidth ? $this->config->snapWidth($width, $this->origWidth) : $width;
+	}
+
 	/**
 	 * Generate image URL
 	 */
 	protected function getImageUrl(int $width): string
 	{
-		// Ensure we don't generate images larger than the original or maxWidth constraint
-		$width = min($width, $this->config->maxSize);
+		// Snap to the width ladder so the URL is served without a redirect
+		if (!$this->origWidth) {
+			$this->loadImage();
+		}
+		$width = $this->origWidth
+			? $this->config->snapWidth($width, $this->origWidth)
+			: min($width, $this->config->maxSize);
 
 		return $this->config->imageUrl(
 			$this->file,
