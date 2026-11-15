@@ -188,13 +188,6 @@ class Resizer
 
 	protected function doResize(object $request, string $sourcePath, string $cachePath): void
 	{
-		// Before we save the new one, find and kill old versioned files for THIS image/width
-		// Matches: path/to/image-w600-v*.webp
-		$oldVersionsPattern = $this->config->cachePath . $request->basePath . "-w" . $request->width . "-v*." . $request->outputExt;
-		foreach (glob($oldVersionsPattern) as $oldFile) {
-			@unlink($oldFile);
-		}
-
 		if (!$this->imageLib) {
 			$this->imageLib = \Config\Services::image('gd');
 		}
