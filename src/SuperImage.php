@@ -5,102 +5,6 @@ namespace Tomkirsch\SuperImage;
 use CodeIgniter\Images\Image;
 
 /**
- * Fluent builder for responsive image width breakpoints.
- *
- * Usage:
- *   SuperImageWidths::make()
- *       ->full()            // 0px+: full container width
- *       ->at(800, 'half')   // 800px+: half container width
- *       ->at(1024, 'third') // 1024px+: one-third container width
- */
-class SuperImageWidths
-{
-	protected array $breakpoints = [];
-
-	protected const PRESETS = [
-		'full'       => 1.0,
-		'half'       => 0.5,
-		'third'      => 1 / 3,
-		'quarter'    => 0.25,
-		'two-thirds' => 2 / 3,
-	];
-
-	public static function make(): self
-	{
-		return new self();
-	}
-
-	/**
-	 * Add a breakpoint. $width is the min-width in px (0 = mobile default).
-	 * $fraction can be a preset name ('half', 'third', etc.) or a float (0.0–1.0).
-	 */
-	public function at(int $minWidth, string|float $fraction): self
-	{
-		$this->breakpoints[$minWidth] = $this->resolveFraction($fraction);
-		return $this;
-	}
-
-	// Shorthand helpers
-	public function full(int $minWidth = 0): self
-	{
-		return $this->at($minWidth, 1.0);
-	}
-	public function half(int $minWidth = 0): self
-	{
-		return $this->at($minWidth, 0.5);
-	}
-	public function third(int $minWidth = 0): self
-	{
-		return $this->at($minWidth, 1 / 3);
-	}
-	public function quarter(int $minWidth = 0): self
-	{
-		return $this->at($minWidth, 0.25);
-	}
-	public function twoThirds(int $minWidth = 0): self
-	{
-		return $this->at($minWidth, 2 / 3);
-	}
-
-	public function px(int $minWidth, int $pixels): self
-	{
-		$this->breakpoints[$minWidth] = ['px' => $pixels];
-		return $this;
-	}
-
-	/**
-	 * Resolve to a pixel-width array using config containers.
-	 * Called internally by SuperImage::calculateLayoutWidths().
-	 */
-	public function resolve(int $gutter = 0): array
-	{
-		ksort($this->breakpoints);
-		$widths = [];
-
-		foreach ($this->breakpoints as $minWidth => $value) {
-			if (is_array($value)) {
-				$widths[$minWidth] = max(1, $value['px'] - $gutter);
-			} else {
-				$widths[$minWidth] = max(1, (int)($minWidth * $value) - $gutter);
-			}
-		}
-
-		return $widths;
-	}
-
-	protected function resolveFraction(string|float $fraction): float
-	{
-		if (is_string($fraction)) {
-			if (!isset(self::PRESETS[$fraction])) {
-				throw new \InvalidArgumentException("Unknown SuperImageWidths preset: {$fraction}");
-			}
-			return self::PRESETS[$fraction];
-		}
-		return $fraction;
-	}
-}
-
-/**
  * SuperImage - Responsive image generation library
  * 
  * Generates responsive images with proper srcset/sizes attributes.
@@ -301,7 +205,7 @@ class SuperImage
 			return $this->renderPlaceholder();
 		}
 
-		if ($this->static) {
+		if ($this->static || $this->widths instanceof SuperImageWidths) {
 			return $this->renderStatic();
 		} else {
 			return $this->renderDynamic();
@@ -558,21 +462,8 @@ class SuperImage
 	 */
 	protected function buildResolutionDict(array $layoutWidths): void
 	{
-		if ($this->maxWidth === self::HIRES_SOURCE) {
-			$maxWidth = $this->origWidth;
-		} elseif (is_numeric($this->maxWidth)) {
-			$maxWidth = min($this->origWidth, (int)$this->maxWidth);
-		} else {
-			$maxWidth = $this->origWidth;
-		}
-
-		if ($this->maxHeight === self::HIRES_SOURCE) {
-			$maxHeight = $this->origHeight;
-		} elseif (is_numeric($this->maxHeight)) {
-			$maxHeight = (int)$this->maxHeight;
-		} else {
-			$maxHeight = null;
-		}
+		$maxWidth = $this->maxCandidateWidth();
+		$maxHeight = is_numeric($this->maxHeight) ? (int)$this->maxHeight : $this->origHeight;
 
 		$this->resolutionDict = [];
 
@@ -716,6 +607,12 @@ class SuperImage
 					$allWidths[] = $width;
 				}
 			}
+			if ($this->widths instanceof SuperImageWidths) {
+				// Fluid slots need the whole bounded ladder, not widths sampled at breakpoints.
+				$cap = $this->snapWidth($this->maxCandidateWidth());
+				$allWidths = array_merge($this->config->widthLadder, [$cap]);
+				$allWidths = array_map(fn($w) => min($cap, $w), $allWidths);
+			}
 			$allWidths = array_unique(array_map(fn($w) => $this->snapWidth($w), $allWidths));
 			sort($allWidths);
 
@@ -737,6 +634,9 @@ class SuperImage
 	 */
 	protected function generateSizesAttribute(): string
 	{
+		if ($this->widths instanceof SuperImageWidths) {
+			return $this->widths->sizes($this->gutter);
+		}
 		$sizes = [];
 
 		foreach ($this->resolutionDict as $viewportWidth => $resolutions) {
@@ -752,6 +652,18 @@ class SuperImage
 		$sizes[] = "{$defaultWidth}px";
 
 		return implode(', ', $sizes);
+	}
+
+	protected function maxCandidateWidth(): int
+	{
+		$width = $this->origWidth;
+		if (is_numeric($this->maxWidth)) {
+			$width = min($width, (int)$this->maxWidth);
+		}
+		if (is_numeric($this->maxHeight)) {
+			$width = min($width, (int)floor((int)$this->maxHeight * $this->origWidth / $this->origHeight));
+		}
+		return max(1, min($width, $this->config->snapWidth(PHP_INT_MAX, $this->origWidth)));
 	}
 
 	protected function snapWidth(int $width): int
