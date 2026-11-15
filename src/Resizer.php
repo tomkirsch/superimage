@@ -104,7 +104,13 @@ class Resizer
 		// Parse the request
 		$request = $this->config->parseImageRequest($requestPath);
 		if (!$request) {
-			throw new \Exception("Invalid image request: {$requestPath}");
+			throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
+		}
+
+		// Only formats we can really encode; checked before any filesystem access
+		$request->outputExt = strtolower($request->outputExt);
+		if (!in_array($request->outputExt, ['webp', 'jpg', 'jpeg', 'png'], true)) {
+			throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
 		}
 
 		// check freshness
@@ -210,7 +216,10 @@ class Resizer
 			}
 		}
 
+		// convert() must precede save() so the bytes match the extension
+		$type = ['webp' => IMAGETYPE_WEBP, 'png' => IMAGETYPE_PNG][$request->outputExt] ?? IMAGETYPE_JPEG;
 		$this->imageLib->resize($width, $height)
+			->convert($type)
 			->save($cachePath);
 
 		// file saving hook
