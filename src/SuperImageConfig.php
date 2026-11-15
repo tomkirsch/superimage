@@ -240,14 +240,14 @@ class SuperImageConfig extends BaseConfig
 	 */
 	public function parseImageRequest(string $path): ?object
 	{
-		// Pattern: (.+)-w(\d+)-v(\d+)\.([a-z]+)
-		if (preg_match('#^(.+)-w(\d+)-v(\d+)\.([a-z]+)$#i', $path, $m)) {
+		// Pattern: {path}-w{1-99999}-v{digits}.{webp|jpg|jpeg|png}
+		if (preg_match('#^(.+)-w([1-9]\d{0,4})-v(\d{1,20})\.(webp|jpe?g|png)$#i', $path, $m)) {
 			$basePath = $m[1];
 			return (object)[
 				'basePath'    => $basePath,
 				'width'       => (int)$m[2],
 				'version'     => $m[3],
-				'outputExt'   => $m[4],
+				'outputExt'   => strtolower($m[4]),
 			];
 		}
 

@@ -107,9 +107,22 @@ class Resizer
 			throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
 		}
 
-		// Only formats we can really encode; checked before any filesystem access
-		$request->outputExt = strtolower($request->outputExt);
-		if (!in_array($request->outputExt, ['webp', 'jpg', 'jpeg', 'png'], true)) {
+		// Lexical check: no empty/./.. segments, absolute paths, NUL, control chars or backslashes
+		$base = $request->basePath;
+		if (preg_match('#[\x00-\x1f\x7f\\\\]#', $base) || $base[0] === '/') {
+			throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
+		}
+		foreach (explode('/', $base) as $segment) {
+			if ($segment === '' || $segment === '.' || $segment === '..') {
+				throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
+			}
+		}
+
+		// Containment: the real source file must live under sourcePath (before any other file access)
+		$sourcePath = $this->config->getSourcePath($base);
+		$root = realpath($this->config->sourcePath);
+		$real = $root === false ? false : realpath($sourcePath);
+		if ($real === false || !is_file($real) || strpos($real, rtrim($root, '/') . '/') !== 0) {
 			throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
 		}
 
@@ -126,13 +139,6 @@ class Resizer
 			// Grab the response, set the header, and exit
 			response()->redirect($newUrl, 'auto', 301)->send();
 			exit;
-		}
-
-		// Get source file
-		$sourcePath = $this->config->getSourcePath($request->basePath);
-
-		if (!file_exists($sourcePath)) {
-			throw new \CodeIgniter\Exceptions\PageNotFoundException("Image not found: {$sourcePath}");
 		}
 
 		// Check cache 
