@@ -334,6 +334,11 @@ class SuperImage
 		if ($this->usePlaceholder) {
 			return;
 		}
+		if ($this->maxOutputWidth() === 0) {
+			$this->usePlaceholder = true;
+			$this->placeholderReason = 'No supported output dimensions';
+			return;
+		}
 		$layoutWidths = $this->calculateLayoutWidths();
 		$this->buildResolutionDict($layoutWidths);
 	}
@@ -688,12 +693,30 @@ class SuperImage
 		if (is_numeric($this->maxHeight)) {
 			$width = min($width, (int)floor((int)$this->maxHeight * $this->origWidth / $this->origHeight));
 		}
-		return max(1, min($width, $this->config->snapWidth(PHP_INT_MAX, $this->origWidth)));
+		return max(1, min($width, $this->maxOutputWidth()));
+	}
+
+	/** Largest canonical width accepted by the same dimension checks as Resizer::serve(). */
+	protected function maxOutputWidth(): int
+	{
+		if ($this->origWidth * $this->origHeight > $this->config->maxSourcePixels) {
+			return 0;
+		}
+		$cap = $this->config->snapWidth(PHP_INT_MAX, $this->origWidth);
+		$max = 0;
+		foreach (array_merge($this->config->widthLadder, [$cap]) as $width) {
+			$width = $this->config->snapWidth($width, $this->origWidth);
+			$height = max(1, (int)round($width * $this->origHeight / $this->origWidth));
+			if ($width <= 16383 && $height <= 16383 && $width * $height <= 25000000) {
+				$max = max($max, $width);
+			}
+		}
+		return $max;
 	}
 
 	protected function snapWidth(int $width): int
 	{
-		return $this->origWidth ? $this->config->snapWidth($width, $this->origWidth) : $width;
+		return $this->origWidth ? min($this->config->snapWidth($width, $this->origWidth), $this->maxOutputWidth()) : $width;
 	}
 
 	/**
@@ -706,9 +729,12 @@ class SuperImage
 			$this->loadImage();
 		}
 		$width = $this->origWidth
-			? $this->config->snapWidth($width, $this->origWidth)
+			? $this->snapWidth($width)
 			: min($width, $this->config->maxSize);
 
+		if ($width < 1) {
+			return '';
+		}
 		return $this->config->imageUrl(
 			$this->file,
 			$width,
