@@ -81,4 +81,20 @@ class LadderTest extends HttpTestCase
 		$this->assertContains($s, [302, 404]);
 		$this->assertCount(1, $this->cacheFiles());
 	}
+
+	public function testVeryThinSourceRendersAndServes(): void
+	{
+		class_exists(\Tomkirsch\SuperImage\SuperImage::class);
+		$im = imagecreatetruecolor(10000, 1);
+		imagejpeg($im, $this->src . '/thin.jpg');
+		$this->startServer(2);
+		$html = $this->superImage()->render(['src' => 'thin.jpg', 'widths' => 'half']);
+		preg_match_all('#/img/([^\s",]+-w\d+-v\d+\.\w+)#', $html, $m);
+		$this->assertNotEmpty($m[1]);
+		foreach (array_unique($m[1]) as $path) {
+			[$s, $body] = $this->get($path);
+			$this->assertSame(200, $s, $path);
+			$this->assertGreaterThanOrEqual(1, getimagesizefromstring($body)[1]);
+		}
+	}
 }

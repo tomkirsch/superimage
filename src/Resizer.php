@@ -135,8 +135,8 @@ class Resizer
 		$snapped = $this->config->snapWidth($request->width, $size[0]);
 
 		// Output caps: libgd/JPEG/WebP limit height to 16383; keep the output bitmap bounded
-		$outHeight = (int)round($snapped * $size[1] / $size[0]);
-		if ($outHeight < 1 || $outHeight > 16383 || $snapped > 16383 || $snapped * $outHeight > 25000000) {
+		$outHeight = max(1, (int)round($snapped * $size[1] / $size[0]));
+		if ($outHeight > 16383 || $snapped > 16383 || $snapped * $outHeight > 25000000) {
 			throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
 		}
 		$currentVersion = $this->config->getCacheVersion($request);
@@ -205,12 +205,12 @@ class Resizer
 			$width = $sourceWidth;
 		}
 
-		$height = (int)round($width / $ratio);
+		$height = max(1, (int)round($width / $ratio));
 
 		if ($this->config->maxSize > 0) {
 			if ($width > $this->config->maxSize) {
 				$width = $this->config->maxSize;
-				$height = (int)round($width / $ratio);
+				$height = max(1, (int)round($width / $ratio));
 			}
 		}
 
