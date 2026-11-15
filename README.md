@@ -285,6 +285,11 @@ Use `SuperImageWidths` when the image occupies different fractions of the viewpo
 Builder output is an `<img>` with width-descriptor candidates from the bounded ladder and
 `sizes="(min-width: 1024px) 33.3333vw, (min-width: 800px) 50vw, 100vw"`.
 Fractions remain fluid at wider viewports; `px(1200, 360)` can specify a fixed slot.
+If every slot is pixel-based (including an explicit mobile `px(0, N)`), candidates honor
+`maxResolution` and `resolutionStep`, rounded up to canonical ladder widths.
+Fluid or mixed builders use the full safe ladder to cover arbitrary viewport widths; a single
+width-descriptor srcset cannot enforce a per-slot DPR ceiling there, so `maxResolution` does
+not limit those builders. Use an all-pixel builder or a preset when a density ceiling is needed.
 `gutter` subtracts pixels using `calc()` (clamped to at least 1px).
 
 Raw decimals and `gutter` also work:

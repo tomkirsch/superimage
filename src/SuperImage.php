@@ -617,7 +617,7 @@ class SuperImage
 					$allWidths[] = $width;
 				}
 			}
-			if ($this->widths instanceof SuperImageWidths) {
+			if ($this->widths instanceof SuperImageWidths && $this->widths->hasFluidSlots()) {
 				// Fluid slots need the whole bounded ladder, not widths sampled at breakpoints.
 				$cap = $this->snapWidth($this->maxCandidateWidth());
 				$allWidths = array_merge($this->config->widthLadder, [$cap]);

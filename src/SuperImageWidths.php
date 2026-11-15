@@ -95,6 +95,20 @@ class SuperImageWidths
 		return $widths;
 	}
 
+	/** Fluid or mixed layouts need viewport coverage; all-pixel layouts can bound density. */
+	public function hasFluidSlots(): bool
+	{
+		if (!isset($this->breakpoints[0])) {
+			return true;
+		}
+		foreach ($this->breakpoints as $value) {
+			if (!is_array($value)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** Browser slot sizes, widest min-width first; fractions stay fluid above each breakpoint. */
 	public function sizes(int $gutter = 0): string
 	{
