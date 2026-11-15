@@ -239,6 +239,10 @@ class SuperImage
 	{
 		$fullPath = $this->config->getSourcePath($this->file);
 		$reason = $this->placeholderReason ?? "Image not found: {$fullPath}";
+		log_message('error', $reason);
+		if (ENVIRONMENT === 'production') {
+			$reason = 'Image unavailable';
+		}
 
 		return sprintf(
 			'<svg width="100%%" height="200" xmlns="http://www.w3.org/2000/svg">
