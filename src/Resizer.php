@@ -127,12 +127,18 @@ class Resizer
 		}
 
 		$size = @getimagesize($real);
-		if (!$size || $size[0] < 1) {
+		if (!$size || $size[0] < 1 || $size[1] < 1 || $size[0] * $size[1] > $this->config->maxSourcePixels) {
 			throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
 		}
 
 		// check width ladder and freshness
 		$snapped = $this->config->snapWidth($request->width, $size[0]);
+
+		// Output caps: libgd/JPEG/WebP limit height to 16383; keep the output bitmap bounded
+		$outHeight = (int)round($snapped * $size[1] / $size[0]);
+		if ($outHeight < 1 || $outHeight > 16383 || $snapped * $outHeight > 25000000) {
+			throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
+		}
 		$currentVersion = $this->config->getCacheVersion($request);
 		if ($snapped !== $request->width || $request->version !== $currentVersion) {
 			// Off-ladder width or old version: redirect to the canonical URL (nothing is written)
@@ -182,8 +188,6 @@ class Resizer
 
 	protected function doResize(object $request, string $sourcePath, string $cachePath): void
 	{
-		ini_set('memory_limit', '256M');
-
 		// Before we save the new one, find and kill old versioned files for THIS image/width
 		// Matches: path/to/image-w600-v*.webp
 		$oldVersionsPattern = $this->config->cachePath . $request->basePath . "-w" . $request->width . "-v*." . $request->outputExt;

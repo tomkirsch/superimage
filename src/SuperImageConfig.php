@@ -130,6 +130,10 @@ class SuperImageConfig extends BaseConfig
 	 */
 	public array $widthLadder = [160, 240, 320, 400, 480, 560, 640, 720, 800, 960, 1120, 1280, 1440, 1600, 1920, 2240, 2560, 2880];
 	/**
+	 * Maximum source image size in pixels (width * height), checked from the header before decoding.
+	 */
+	public int $maxSourcePixels = 40000000;
+	/**
 	 * Cache TTL in seconds (0 disables expiration cleanup).
 	 */
 	public int $cacheTTL = 0; 
