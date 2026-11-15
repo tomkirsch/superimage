@@ -69,4 +69,16 @@ class LadderTest extends HttpTestCase
 		}
 		$this->assertGreaterThan(5, $n);
 	}
+
+	public function testUpscaleWithoutMaxSizeServesLadderWidthAboveSource(): void
+	{
+		$this->makeImage('s.jpg', 80, 40);
+		$this->startServer(1, ['SI_MAX_SIZE' => '0', 'SI_UPSCALE' => '1']);
+		[$s, $body] = $this->get($this->reqPath('s.jpg', 480));
+		$this->assertSame(200, $s);
+		$this->assertSame(480, getimagesizefromstring($body)[0]);
+		[$s] = $this->get($this->reqPath('s.jpg', 99999));
+		$this->assertContains($s, [302, 404]);
+		$this->assertCount(1, $this->cacheFiles());
+	}
 }

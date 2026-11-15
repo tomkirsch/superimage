@@ -188,13 +188,15 @@ class SuperImageConfig extends BaseConfig
 	 */
 	public function snapWidth(int $width, int $sourceWidth): int
 	{
-		$cap = $this->allowUpscale ? $this->maxSize : min($sourceWidth, $this->maxSize);
-		if ($this->maxSize <= 0) {
-			$cap = $sourceWidth;
-		}
-		$cap = max(1, $cap);
 		$ladder = $this->widthLadder;
 		sort($ladder);
+		if ($this->maxSize > 0) {
+			$cap = $this->allowUpscale ? $this->maxSize : min($sourceWidth, $this->maxSize);
+		} else {
+			// no configured cap: stay finite (upscaling may use ladder widths above the source)
+			$cap = $this->allowUpscale ? max($sourceWidth, (int)end($ladder)) : $sourceWidth;
+		}
+		$cap = max(1, $cap);
 		foreach ($ladder as $step) {
 			if ($step >= $width && $step < $cap) {
 				return $step;
