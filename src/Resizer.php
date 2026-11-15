@@ -153,7 +153,7 @@ class Resizer
 	}
 
 	/**
-	 * Resize image and save to cache with locking
+	 * Resize image and save to cache (atomic, lock-free: concurrent requests may both render, last rename wins)
 	 * @param object $request Parsed request object
 	 * @param string $sourcePath Path to source image
 	 * @param string $cachePath Path to save resized image
@@ -161,22 +161,11 @@ class Resizer
 	protected function resize(object $request, string $sourcePath, string $cachePath): void
 	{
 		$dir = dirname($cachePath);
-		if (!is_dir($dir)) {
-			mkdir($dir, 0755, true);
+		if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+			throw new \RuntimeException('Cannot create cache directory');
 		}
 
-		$lockFile = $cachePath . '.lock';
-		$fp = fopen($lockFile, 'w+');
-
-		if (flock($fp, LOCK_EX)) {
-			// Double-check existence inside lock to prevent redundant resizes
-			if (!file_exists($cachePath)) {
-				$this->doResize($request, $sourcePath, $cachePath);
-			}
-			flock($fp, LOCK_UN);
-		}
-		fclose($fp);
-		@unlink($lockFile);
+		$this->doResize($request, $sourcePath, $cachePath);
 	}
 
 	protected function doResize(object $request, string $sourcePath, string $cachePath): void
@@ -219,8 +208,18 @@ class Resizer
 		// convert() must precede save() so the bytes match the extension
 		$type = ['webp' => IMAGETYPE_WEBP, 'png' => IMAGETYPE_PNG][$request->outputExt] ?? IMAGETYPE_JPEG;
 		$this->imageLib->resize($width, $height)
-			->convert($type)
-			->save($cachePath);
+			->convert($type);
+
+		// write to a temp name, then rename into place so readers never see a partial file
+		$tmp = $cachePath . '.' . bin2hex(random_bytes(6)) . '.tmp';
+		try {
+			$this->imageLib->save($tmp);
+			if (!rename($tmp, $cachePath)) {
+				throw new \RuntimeException('Cannot write cache file');
+			}
+		} finally {
+			@unlink($tmp);
+		}
 
 		// file saving hook
 		$this->config->onFileSave($cachePath, $request);
