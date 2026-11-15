@@ -149,7 +149,7 @@ class Resizer
 				$request->outputExt
 			);
 			// Grab the response, set the header, and exit
-			response()->redirect($newUrl, 'auto', $snapped !== $request->width ? 302 : 301)->send();
+			response()->redirect($newUrl, 'auto', 302)->send();
 			exit;
 		}
 
