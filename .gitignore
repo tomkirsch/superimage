@@ -1,3 +1,4 @@
 vendor/
 tests/_tmp/
 .phpunit.cache/
+.phpunit.result.cache
