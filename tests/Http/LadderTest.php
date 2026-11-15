@@ -49,13 +49,14 @@ class LadderTest extends HttpTestCase
 	/** Real round trip: every URL render() emits is served 200 directly (no redirect). */
 	public function testRenderedUrlsAreServedWithoutRedirect(): void
 	{
-		class_exists(\Tomkirsch\SuperImage\SuperImage::class);
 		$this->makeImage('a.jpg', 1500, 900);
 		$this->startServer(4);
 		$optsList = [
 			['widths' => 'half', 'gutter' => 15],
 			['widths' => \Tomkirsch\SuperImage\SuperImageWidths::make()->full()->at(800, 'half')],
 			['widths' => [0 => 333, 768 => 517], 'static' => true],
+			['widths' => [100, 200, 300]],
+			['widths' => [150]],
 		];
 		$n = 0;
 		foreach ($optsList as $opts) {
@@ -84,7 +85,6 @@ class LadderTest extends HttpTestCase
 
 	public function testVeryThinSourceRendersAndServes(): void
 	{
-		class_exists(\Tomkirsch\SuperImage\SuperImage::class);
 		$im = imagecreatetruecolor(10000, 1);
 		imagejpeg($im, $this->src . '/thin.jpg');
 		$this->startServer(2);

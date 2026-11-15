@@ -16,12 +16,13 @@ class RoundTripTest extends TestCase
 
 	public function testEmittedWidthsAreCanonical(): void
 	{
-		class_exists(\Tomkirsch\SuperImage\SuperImage::class); // SuperImageWidths lives in SuperImage.php (autoload)
 		$cases = [
 			'preset' => ['widths' => 'full'],
 			'half' => ['widths' => 'half', 'gutter' => 15],
 			'builder' => ['widths' => SuperImageWidths::make()->full()->at(800, 'half')->at(1024, 'third')],
 			'list' => ['widths' => [0 => 333, 768 => 517], 'static' => true],
+			'fixed list' => ['widths' => [100, 200, 300]],
+			'singleton' => ['widths' => [150]],
 			'static preset' => ['widths' => 'third', 'static' => true, 'maxResolution' => 3.0, 'resolutionStep' => 0.25],
 		];
 		foreach ([[1500, 900, false], [500, 300, false], [2000, 1000, true]] as [$w, $h, $up]) {

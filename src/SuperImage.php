@@ -205,7 +205,7 @@ class SuperImage
 			return $this->renderPlaceholder();
 		}
 
-		if ($this->static || $this->widths instanceof SuperImageWidths) {
+		if ($this->static || $this->isFixedWidthList() || $this->widths instanceof SuperImageWidths) {
 			return $this->renderStatic();
 		} else {
 			return $this->renderDynamic();
@@ -311,6 +311,11 @@ class SuperImage
 	 */
 	protected function validate(): void
 	{
+		if (!is_finite($this->resolutionStep) || $this->resolutionStep <= 0
+			|| !is_finite($this->maxResolution) || $this->maxResolution < 1
+			|| ($this->maxResolution - 1) / $this->resolutionStep > 1000) {
+			throw new \InvalidArgumentException('Require resolutionStep > 0, maxResolution >= 1 and at most 1000 resolution increments');
+		}
 		if (empty($this->file)) {
 			throw new \Exception('No source file specified. Use "src" or "file" option.');
 		}
@@ -393,12 +398,14 @@ class SuperImage
 			return $this->getPercentageWidths($this->widths);
 		}
 
-		if ($this->static && is_array($this->widths) && isset($this->widths[0])) {
-			return $this->widths;
-		}
-
-		if (is_array($this->widths)) {
-			return $this->widths;
+		if (is_array($this->widths) && $this->widths !== []) {
+			$widths = $this->widths;
+			if ($this->isFixedWidthList()) {
+				sort($widths);
+			} else {
+				krsort($widths);
+			}
+			return $widths;
 		}
 
 		throw new \Exception('Invalid widths configuration');
@@ -426,10 +433,10 @@ class SuperImage
 		foreach ($breakpoints as $size => $breakpoint) {
 			$containerWidth = $containers[$size];
 			$imageWidth = (int)($containerWidth * $fraction) - $this->gutter;
-			$widths[$breakpoint] = $imageWidth;
+			$widths[$breakpoint] = max(1, $imageWidth);
 		}
 
-		$widths[0] = (int)(min($containers) * $fraction) - $this->gutter;
+		$widths[0] = max(1, (int)(min($containers) * $fraction) - $this->gutter);
 		krsort($widths);
 
 		return $widths;
@@ -448,10 +455,10 @@ class SuperImage
 		foreach ($breakpoints as $size => $breakpoint) {
 			$containerWidth = $containers[$size];
 			$imageWidth = (int)($containerWidth * $percentage) - $this->gutter;
-			$widths[$breakpoint] = $imageWidth;
+			$widths[$breakpoint] = max(1, $imageWidth);
 		}
 
-		$widths[0] = (int)(min($containers) * $percentage) - $this->gutter;
+		$widths[0] = max(1, (int)(min($containers) * $percentage) - $this->gutter);
 		krsort($widths);
 
 		return $widths;
@@ -463,33 +470,24 @@ class SuperImage
 	protected function buildResolutionDict(array $layoutWidths): void
 	{
 		$maxWidth = $this->maxCandidateWidth();
-		$maxHeight = is_numeric($this->maxHeight) ? (int)$this->maxHeight : $this->origHeight;
 
 		$this->resolutionDict = [];
 
 		foreach ($layoutWidths as $viewportWidth => $imageWidth) {
 			$this->resolutionDict[$viewportWidth] = [];
 
-			for ($res = 1; $res <= $this->maxResolution; $res += $this->resolutionStep) {
-				$targetWidth = (int)floor($imageWidth * $res);
+			$steps = (int)floor(($this->maxResolution - 1) / $this->resolutionStep + 1e-9);
+			for ($step = 0; $step <= $steps; $step++) {
+				$res = 1 + $step * $this->resolutionStep;
+				$targetWidth = max(1, (int)min($maxWidth, floor($imageWidth * $res)));
 
-				if ($targetWidth > $maxWidth) {
-					continue;
-				}
-
-				if ($maxHeight) {
-					list($constrainedWidth, $constrainedHeight) = $this->reproportion($targetWidth, 0);
-					if ($constrainedHeight > $maxHeight) {
-						continue;
-					}
-				}
 				$resKey = (string)$res; // ensure 1.5 becomes '1.5' key
 				$this->resolutionDict[$viewportWidth][$resKey] = $targetWidth;
 			}
 		}
 
 		if (!isset($this->resolutionDict[0]) || empty($this->resolutionDict[0])) {
-			$this->resolutionDict[0] = ['1' => min($maxWidth, 540)];
+			$this->resolutionDict[0] = ['1' => max(1, min($maxWidth, 540))];
 		}
 	}
 
@@ -499,7 +497,7 @@ class SuperImage
 	protected function reproportion(int $width, int $height = 0): array
 	{
 		if ($height === 0) {
-			$height = (int)floor($width * $this->origHeight / $this->origWidth);
+			$height = max(1, (int)floor($width * $this->origHeight / $this->origWidth));
 		} else {
 			$width = (int)floor($this->origWidth * $height / $this->origHeight);
 		}
@@ -518,7 +516,7 @@ class SuperImage
 		$out .= "<picture{$pictureAttrStr}>{$nl}";
 
 		foreach ($this->resolutionDict as $viewportWidth => $resolutions) {
-			if ($viewportWidth === 0) {
+			if ($viewportWidth === 0 || empty($resolutions)) {
 				continue;
 			}
 
@@ -589,6 +587,9 @@ class SuperImage
 
 		$attr['width'] = $this->origWidth;
 		$attr['height'] = $this->origHeight;
+		if ($this->isFixedWidthList()) {
+			[$attr['width'], $attr['height']] = $this->reproportion(max(1, (int)min($this->widths)));
+		}
 
 		if ($this->loading !== 'auto') {
 			$attr['loading'] = $this->loading;
@@ -623,6 +624,17 @@ class SuperImage
 
 			$attr['srcset'] = implode(', ', $srcset);
 			$attr['sizes'] = $this->generateSizesAttribute();
+		} else {
+			// Below the first picture source, phones still need high-DPR candidates.
+			$srcset = $seen = [];
+			foreach ($this->resolutionDict[0] as $res => $width) {
+				$url = $this->getImageUrl($width);
+				if (!in_array($url, $seen, true)) {
+					$seen[] = $url;
+					$srcset[] = $url . ' ' . $res . 'x';
+				}
+			}
+			$attr['srcset'] = implode(', ', $srcset);
 		}
 
 		$attrStr = $this->stringifyAttributes($attr);
@@ -634,13 +646,16 @@ class SuperImage
 	 */
 	protected function generateSizesAttribute(): string
 	{
+		if ($this->isFixedWidthList()) {
+			return max(1, (int)min($this->widths)) . 'px';
+		}
 		if ($this->widths instanceof SuperImageWidths) {
 			return $this->widths->sizes($this->gutter);
 		}
 		$sizes = [];
 
 		foreach ($this->resolutionDict as $viewportWidth => $resolutions) {
-			if ($viewportWidth === 0) {
+			if ($viewportWidth === 0 || empty($resolutions)) {
 				continue;
 			}
 
@@ -652,6 +667,12 @@ class SuperImage
 		$sizes[] = "{$defaultWidth}px";
 
 		return implode(', ', $sizes);
+	}
+
+	protected function isFixedWidthList(): bool
+	{
+		return is_array($this->widths) && $this->widths !== []
+			&& array_keys($this->widths) === range(0, count($this->widths) - 1);
 	}
 
 	protected function maxCandidateWidth(): int
