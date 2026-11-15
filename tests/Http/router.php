@@ -22,6 +22,12 @@ if (!str_starts_with($uri, '/img/')) {
 $cfg = new \Tomkirsch\SuperImage\SuperImageConfig();
 $cfg->sourcePath = getenv('SI_SRC') . '/';
 $cfg->cachePath = getenv('SI_CACHE') . '/';
+if (getenv('SI_MAX_SIZE') !== false) {
+	$cfg->maxSize = (int)getenv('SI_MAX_SIZE');
+}
+if (getenv('SI_UPSCALE') !== false) {
+	$cfg->allowUpscale = true;
+}
 
 try {
 	(new \Tomkirsch\SuperImage\Resizer($cfg))->serve(substr($uri, 5));

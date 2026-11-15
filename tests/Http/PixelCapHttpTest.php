@@ -13,4 +13,15 @@ class PixelCapHttpTest extends HttpTestCase
 		$this->assertSame(404, $s);
 		$this->assertSame([], $this->cacheFiles());
 	}
+
+	public function testWideImageIs404AndLeavesNoFile(): void
+	{
+		$im = imagecreatetruecolor(17000, 100);
+		imagejpeg($im, $this->src . '/wide.jpg');
+		$this->config->maxSize = 0;
+		$this->startServer(1, ['SI_MAX_SIZE' => '0']);
+		[$s] = $this->get($this->reqPath('wide.jpg', 17000, 'webp'));
+		$this->assertSame(404, $s);
+		$this->assertSame([], $this->cacheFiles());
+	}
 }

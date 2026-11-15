@@ -136,7 +136,7 @@ class Resizer
 
 		// Output caps: libgd/JPEG/WebP limit height to 16383; keep the output bitmap bounded
 		$outHeight = (int)round($snapped * $size[1] / $size[0]);
-		if ($outHeight < 1 || $outHeight > 16383 || $snapped * $outHeight > 25000000) {
+		if ($outHeight < 1 || $outHeight > 16383 || $snapped > 16383 || $snapped * $outHeight > 25000000) {
 			throw new \CodeIgniter\Exceptions\PageNotFoundException('Image not found');
 		}
 		$currentVersion = $this->config->getCacheVersion($request);

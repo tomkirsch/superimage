@@ -14,7 +14,7 @@ abstract class HttpTestCase extends TestCase
 	private $proc = null;
 	protected int $port = 0;
 
-	protected function startServer(int $workers = 1): void
+	protected function startServer(int $workers = 1, array $extraEnv = []): void
 	{
 		$s = stream_socket_server('tcp://127.0.0.1:0', $en, $es);
 		$this->port = (int)substr(strrchr(stream_socket_get_name($s, false), ':'), 1);
@@ -23,7 +23,7 @@ abstract class HttpTestCase extends TestCase
 			'SI_SRC' => $this->src,
 			'SI_CACHE' => $this->cache,
 			'PHP_CLI_SERVER_WORKERS' => (string)$workers,
-		]);
+		] + $extraEnv);
 		$cmd = [PHP_BINARY, '-S', '127.0.0.1:' . $this->port, __DIR__ . '/router.php'];
 		$this->proc = proc_open($cmd, [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', $this->sandbox . '/server.log', 'w']], $pipes, dirname(__DIR__, 2), $env);
 		for ($i = 0; $i < 100; $i++) {
