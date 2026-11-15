@@ -289,7 +289,11 @@ If every slot is pixel-based (including an explicit mobile `px(0, N)`), candidat
 `maxResolution` and `resolutionStep`, rounded up to canonical ladder widths.
 Fluid or mixed builders use the full safe ladder to cover arbitrary viewport widths; a single
 width-descriptor srcset cannot enforce a per-slot DPR ceiling there, so `maxResolution` does
-not limit those builders. Use an all-pixel builder or a preset when a density ceiling is needed.
+not limit those builders. A single fixed pixel slot has a bounded candidate ceiling; when
+multiple different pixel slots share a srcset, candidates are bounded relative to each supplied
+slot, but the browser may select a larger slot's candidate. Presets use per-breakpoint density
+srcsets when a per-slot ceiling is needed.
+Subclasses overriding `resolve(int $gutter = 0): array` retain pixel-map sizes and bounded density candidates.
 `gutter` subtracts pixels using `calc()` (clamped to at least 1px).
 
 Raw decimals and `gutter` also work:

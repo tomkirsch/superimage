@@ -98,6 +98,10 @@ class SuperImageWidths
 	/** Fluid or mixed layouts need viewport coverage; all-pixel layouts can bound density. */
 	public function hasFluidSlots(): bool
 	{
+		// Legacy subclasses supply pixel maps through resolve(), not the fluent breakpoints.
+		if ((new \ReflectionMethod($this, 'resolve'))->getDeclaringClass()->getName() !== self::class) {
+			return false;
+		}
 		if (!isset($this->breakpoints[0])) {
 			return true;
 		}
@@ -112,6 +116,15 @@ class SuperImageWidths
 	/** Browser slot sizes, widest min-width first; fractions stay fluid above each breakpoint. */
 	public function sizes(int $gutter = 0): string
 	{
+		if (!$this->hasFluidSlots()) {
+			$widths = $this->resolve($gutter) + [0 => 540];
+			krsort($widths);
+			$sizes = [];
+			foreach ($widths as $minWidth => $pixels) {
+				$sizes[] = ($minWidth > 0 ? "(min-width: {$minWidth}px) " : '') . max(1, (int)$pixels) . 'px';
+			}
+			return implode(', ', $sizes);
+		}
 		$breakpoints = $this->breakpoints + [0 => 1.0];
 		krsort($breakpoints);
 		$sizes = [];
